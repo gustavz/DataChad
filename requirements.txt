@@ -1,0 +1,11 @@
+streamlit==1.22.0
+streamlit-chat==0.0.2.2
+deeplake==3.4.1
+openai==0.27.6
+langchain==0.0.164
+tiktoken==0.4.0
+unstructured==0.6.5
+pdf2image==1.16.3
+pytesseract==0.3.10
+beautifulsoup4==4.12.2
+bs4==0.0.1
