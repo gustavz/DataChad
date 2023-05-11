@@ -8,6 +8,7 @@ from utils import (
     save_uploaded_file,
     build_chain_and_clear_history,
     validate_keys,
+    logger,
 )
 
 
@@ -74,12 +75,12 @@ data_source = st.text_input(
 # generate new chain for new data source / uploaded file
 # make sure to do this only once per input / on change
 if data_source and data_source != st.session_state["data_source"]:
-    print(f"data source provided: '{data_source}'")
+    logger.info(f"data source provided: '{data_source}'")
     build_chain_and_clear_history(data_source)
     st.session_state["data_source"] = data_source
 
 if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
-    print(f"uploaded file: '{uploaded_file.name}'")
+    logger.info(f"uploaded file: '{uploaded_file.name}'")
     data_source = save_uploaded_file(uploaded_file)
     build_chain_and_clear_history(data_source)
     delete_uploaded_file(uploaded_file)

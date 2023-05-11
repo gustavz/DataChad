@@ -1,6 +1,8 @@
 import os
 import re
 
+import logging
+import sys
 import openai
 import deeplake
 import shutil
@@ -25,14 +27,34 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import DeepLake
 
-from constants import DATA_PATH, MODEL, PAGE_ICON
+from constants import DATA_PATH, MODEL, PAGE_ICON, APP_NAME
+
+
+logger = logging.getLogger(APP_NAME)
+
+
+def configure_logger(debug=0):
+    log_level = logging.DEBUG if debug == 1 else logging.INFO
+    logger.setLevel(log_level)
+
+    stream_handler = logging.StreamHandler(stream=sys.stdout)
+    stream_handler.setLevel(log_level)
+
+    formatter = logging.Formatter("%(message)s")
+
+    stream_handler.setFormatter(formatter)
+
+    logger.addHandler(stream_handler)
+    logger.propagate = False
+
+
+configure_logger(0)
 
 
 def validate_keys(openai_key, activeloop_token, activeloop_org_name):
     # Validate all API related variables are set and correct
     all_keys = [openai_key, activeloop_token, activeloop_org_name]
     if any(all_keys):
-        print(f"{openai_key=}\n{activeloop_token=}\n{activeloop_org_name=}")
         if not all(all_keys):
             st.session_state["auth_ok"] = False
             st.error("You need to fill all fields", icon=PAGE_ICON)
@@ -44,31 +66,39 @@ def validate_keys(openai_key, activeloop_token, activeloop_org_name):
         # Bypass for local development or deployments with stored credentials
         # either env variables or streamlit secrets need to be set
         try:
-            assert os.environ.get("OPENAI_API_KEY")
-            assert os.environ.get("ACTIVELOOP_TOKEN")
-            assert os.environ.get("ACTIVELOOP_ORG_NAME")
-        except:
-            assert st.secrets.get("OPENAI_API_KEY")
-            assert st.secrets.get("ACTIVELOOP_TOKEN")
-            assert st.secrets.get("ACTIVELOOP_ORG_NAME")
+            try:
+                assert os.environ.get("OPENAI_API_KEY")
+                assert os.environ.get("ACTIVELOOP_TOKEN")
+                assert os.environ.get("ACTIVELOOP_ORG_NAME")
+            except:
+                assert st.secrets.get("OPENAI_API_KEY")
+                assert st.secrets.get("ACTIVELOOP_TOKEN")
+                assert st.secrets.get("ACTIVELOOP_ORG_NAME")
 
-            os.environ["OPENAI_API_KEY"] = st.secrets.get("OPENAI_API_KEY")
-            os.environ["ACTIVELOOP_TOKEN"] = st.secrets.get("ACTIVELOOP_TOKEN")
-            os.environ["ACTIVELOOP_ORG_NAME"] = st.secrets.get("ACTIVELOOP_ORG_NAME")
+                os.environ["OPENAI_API_KEY"] = st.secrets.get("OPENAI_API_KEY")
+                os.environ["ACTIVELOOP_TOKEN"] = st.secrets.get("ACTIVELOOP_TOKEN")
+                os.environ["ACTIVELOOP_ORG_NAME"] = st.secrets.get(
+                    "ACTIVELOOP_ORG_NAME"
+                )
+        except:
+            st.session_state["auth_ok"] = False
+            st.error("No credentials stored and nothing submitted", icon=PAGE_ICON)
+            st.stop()
     try:
         # Try to access openai and deeplake
         with st.spinner("Authentifying..."):
+            openai.api_key = os.environ["OPENAI_API_KEY"]
             openai.Model.list()
             deeplake.exists(
                 f"hub://{os.environ['ACTIVELOOP_ORG_NAME']}/DataChad-Authentication-Check",
             )
     except Exception as e:
-        print(f"Authentication failed with {e}")
+        logger.error(f"Authentication failed with {e}")
         st.session_state["auth_ok"] = False
         st.error("Authentication failed", icon=PAGE_ICON)
         st.stop()
 
-    print("Authentification successful!")
+    logger.info("Authentification successful!")
     st.session_state["auth_ok"] = True
 
 
@@ -83,7 +113,7 @@ def save_uploaded_file(uploaded_file):
     file = open(file_path, "wb")
     file.write(file_bytes)
     file.close()
-    print(f"saved {file_path}")
+    logger.info(f"saved {file_path}")
     return file_path
 
 
@@ -92,7 +122,7 @@ def delete_uploaded_file(uploaded_file):
     file_path = DATA_PATH / uploaded_file.name
     if os.path.exists(DATA_PATH):
         os.remove(file_path)
-        print(f"removed {file_path}")
+        logger.info(f"removed {file_path}")
 
 
 def load_git(data_source):
@@ -110,7 +140,7 @@ def load_git(data_source):
             )
             break
         except Exception as e:
-            print(f"error loading git: {e}")
+            logger.error(f"error loading git: {e}")
         if os.path.exists(repo_path):
             # cleanup repo afterwards
             shutil.rmtree(repo_path)
@@ -161,12 +191,12 @@ def load_any_data_source(data_source):
     if loader:
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
         docs = loader.load_and_split(text_splitter)
-        print(f"loaded {len(docs)} document chucks")
+        logger.info(f"loaded {len(docs)} document chucks")
         return docs
 
     error_msg = f"Failed to load {data_source}"
     st.error(error_msg, icon=PAGE_ICON)
-    print(error_msg)
+    logger.info(error_msg)
     st.stop()
 
 
@@ -185,13 +215,13 @@ def setup_vector_store(data_source):
     dataset_path = f"hub://{os.environ['ACTIVELOOP_ORG_NAME']}/{data_source_name}"
     if deeplake.exists(dataset_path):
         with st.spinner("Loading vector store..."):
-            print(f"{dataset_path} exists -> loading")
+            logger.info(f"{dataset_path} exists -> loading")
             vector_store = DeepLake(
                 dataset_path=dataset_path, read_only=True, embedding_function=embeddings
             )
     else:
         with st.spinner("Reading, embedding and uploading data to hub..."):
-            print(f"{dataset_path} does not exist -> uploading")
+            logger.info(f"{dataset_path} does not exist -> uploading")
             docs = load_any_data_source(data_source)
             vector_store = DeepLake.from_documents(
                 docs,
@@ -221,7 +251,7 @@ def get_chain(data_source):
             verbose=True,
             max_tokens_limit=3375,
         )
-        print(f"{data_source} is ready to go!")
+        logger.info(f"{data_source} is ready to go!")
     return chain
 
 
@@ -238,6 +268,6 @@ def generate_response(prompt):
         response = st.session_state["chain"](
             {"question": prompt, "chat_history": st.session_state["chat_history"]}
         )
-        print(f"{response=}")
+        logger.info(f"{response=}")
         st.session_state["chat_history"].append((prompt, response["answer"]))
     return response["answer"]
