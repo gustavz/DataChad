@@ -143,7 +143,7 @@ def load_any_data_source(data_source):
 
     loader = None
     if is_dir:
-        loader = DirectoryLoader(data_source, recursive=True)
+        loader = DirectoryLoader(data_source, recursive=True, silent_errors=True)
     if is_git:
         return load_git(data_source)
     if is_web:
