@@ -7,7 +7,7 @@ This is an app that let's you ask questions about any data source by leveraging 
 1. Upload any `file` or enter any `path` or `url`
 2. The data source is detected and loaded into text documents
 3. The text documents are embedded using openai embeddings
-4. The embeddings are stored as a vector dataset to a datalake
+4. The embeddings are stored as a vector dataset to activeloop's database hub
 5. A langchain is created consisting of a LLM model (`gpt-3.5-turbo` by default) and the embedding database index as retriever
 6. When sending questions to the bot this chain is used as context to answer your questions
 7. Finally the chat history is cached locally to enable a [ChatGPT](https://chat.openai.com/) like Q&A conversation
@@ -16,4 +16,5 @@ This is an app that let's you ask questions about any data source by leveraging 
 
 - As default context this git repository is taken so you can directly start asking question about its functionality without chosing an own data source.
 - To run locally or deploy somewhere, execute `cp .env.template .env` and set necessary keys in the newly created secrets file. Another option is to manually set environment variables
-- Yes, Chad in `DataChad` refers to the well-known [meme](https://www.google.com/search?q=chad+meme)
+- your file won't load? Feel free to open an Issue or PR and contribute!
+- Finally, yes, Chad in `DataChad` refers to the well-known [meme](https://www.google.com/search?q=chad+meme)
