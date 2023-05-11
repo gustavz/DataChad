@@ -3,10 +3,10 @@ from streamlit_chat import message
 
 from constants import APP_NAME, DEFAULT_DATA_SOURCE, PAGE_ICON
 from utils import (
+    delete_uploaded_file,
     generate_response,
-    get_chain,
-    reset_data_source,
     save_uploaded_file,
+    build_chain_and_clear_history,
     validate_keys,
 )
 
@@ -28,6 +28,10 @@ if "past" not in st.session_state:
     st.session_state["past"] = []
 if "auth_ok" not in st.session_state:
     st.session_state["auth_ok"] = False
+if "data_source" not in st.session_state:
+    st.session_state["data_source"] = ""
+if "uploaded_file" not in st.session_state:
+    st.session_state["uploaded_file"] = None
 
 
 # Sidebar
@@ -48,31 +52,39 @@ with st.sidebar:
     if not st.session_state["auth_ok"]:
         st.stop()
 
-    clear_button = st.button("Clear Conversation and Reset Data", key="clear")
+    clear_button = st.button("Clear Conversation", key="clear")
 
 # the chain can only be initialized after authentication is OK
 if "chain" not in st.session_state:
-    st.session_state["chain"] = get_chain(DEFAULT_DATA_SOURCE)
+    build_chain_and_clear_history(DEFAULT_DATA_SOURCE)
 
 if clear_button:
-    # reset everything
-    reset_data_source(DEFAULT_DATA_SOURCE)
+    # reset chat history
+    st.session_state["past"] = []
+    st.session_state["generated"] = []
+    st.session_state["chat_history"] = []
 
-# upload file or enter data source
+# file upload and data source inputs
 uploaded_file = st.file_uploader("Upload a file")
 data_source = st.text_input(
     "Enter any data source",
     placeholder="Any path or url pointing to a file or directory of files",
 )
 
-if uploaded_file:
+# generate new chain for new data source / uploaded file
+# make sure to do this only once per input / on change
+if data_source and data_source != st.session_state["data_source"]:
+    print(f"data source provided: '{data_source}'")
+    build_chain_and_clear_history(data_source)
+    st.session_state["data_source"] = data_source
+
+if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
     print(f"uploaded file: '{uploaded_file.name}'")
     data_source = save_uploaded_file(uploaded_file)
-    reset_data_source(data_source)
+    build_chain_and_clear_history(data_source)
+    delete_uploaded_file(uploaded_file)
+    st.session_state["uploaded_file"] = uploaded_file
 
-if data_source:
-    print(f"data source provided: '{data_source}'")
-    reset_data_source(data_source)
 
 # container for chat history
 response_container = st.container()
