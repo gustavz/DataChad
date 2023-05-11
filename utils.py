@@ -1,11 +1,11 @@
+import logging
 import os
 import re
-
-import logging
-import sys
-import openai
-import deeplake
 import shutil
+import sys
+
+import deeplake
+import openai
 import streamlit as st
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
@@ -27,8 +27,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import DeepLake
 
-from constants import DATA_PATH, MODEL, PAGE_ICON, APP_NAME
-
+from constants import APP_NAME, DATA_PATH, MODEL, PAGE_ICON
 
 logger = logging.getLogger(APP_NAME)
 
@@ -51,55 +50,36 @@ def configure_logger(debug=0):
 configure_logger(0)
 
 
-def validate_keys(openai_key, activeloop_token, activeloop_org_name):
-    # Validate all API related variables are set and correct
-    all_keys = [openai_key, activeloop_token, activeloop_org_name]
-    if any(all_keys):
-        if not all(all_keys):
-            st.session_state["auth_ok"] = False
-            st.error("You need to fill all fields", icon=PAGE_ICON)
-            st.stop()
-        os.environ["OPENAI_API_KEY"] = openai_key
-        os.environ["ACTIVELOOP_TOKEN"] = activeloop_token
-        os.environ["ACTIVELOOP_ORG_NAME"] = activeloop_org_name
-    else:
-        # Bypass for local development or deployments with stored credentials
-        # either env variables or streamlit secrets need to be set
-        try:
-            try:
-                assert os.environ.get("OPENAI_API_KEY")
-                assert os.environ.get("ACTIVELOOP_TOKEN")
-                assert os.environ.get("ACTIVELOOP_ORG_NAME")
-            except:
-                assert st.secrets.get("OPENAI_API_KEY")
-                assert st.secrets.get("ACTIVELOOP_TOKEN")
-                assert st.secrets.get("ACTIVELOOP_ORG_NAME")
-
-                os.environ["OPENAI_API_KEY"] = st.secrets.get("OPENAI_API_KEY")
-                os.environ["ACTIVELOOP_TOKEN"] = st.secrets.get("ACTIVELOOP_TOKEN")
-                os.environ["ACTIVELOOP_ORG_NAME"] = st.secrets.get(
-                    "ACTIVELOOP_ORG_NAME"
-                )
-        except:
-            st.session_state["auth_ok"] = False
-            st.error("No credentials stored and nothing submitted", icon=PAGE_ICON)
-            st.stop()
+def authenticate(openai_api_key, activeloop_token, activeloop_org_name):
+    # Validate all credentials are set and correct
+    # Check for env variables to enable local dev and deployments with shared credentials
+    openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
+    activeloop_token = activeloop_token or os.environ.get("ACTIVELOOP_TOKEN")
+    activeloop_org_name = activeloop_org_name or os.environ.get("ACTIVELOOP_ORG_NAME")
+    if not (openai_api_key and activeloop_token and activeloop_org_name):
+        st.session_state["auth_ok"] = False
+        st.error("Credentials neither set nor stored", icon=PAGE_ICON)
+        st.stop()
     try:
         # Try to access openai and deeplake
         with st.spinner("Authentifying..."):
-            openai.api_key = os.environ["OPENAI_API_KEY"]
+            openai.api_key = openai_api_key
             openai.Model.list()
             deeplake.exists(
-                f"hub://{os.environ['ACTIVELOOP_ORG_NAME']}/DataChad-Authentication-Check",
+                f"hub://{activeloop_org_name}/DataChad-Authentication-Check",
+                token=activeloop_token,
             )
     except Exception as e:
         logger.error(f"Authentication failed with {e}")
         st.session_state["auth_ok"] = False
         st.error("Authentication failed", icon=PAGE_ICON)
         st.stop()
-
-    logger.info("Authentification successful!")
+    # store credentials in the session state
     st.session_state["auth_ok"] = True
+    st.session_state["openai_api_key"] = openai_api_key
+    st.session_state["activeloop_token"] = activeloop_token
+    st.session_state["activeloop_org_name"] = activeloop_org_name
+    logger.info("Authentification successful!")
 
 
 def save_uploaded_file(uploaded_file):
@@ -210,14 +190,19 @@ def clean_data_source_string(data_source):
 
 def setup_vector_store(data_source):
     # either load existing vector store or upload a new one to the hub
-    embeddings = OpenAIEmbeddings(disallowed_special=())
+    embeddings = OpenAIEmbeddings(
+        disallowed_special=(), openai_api_key=st.session_state["openai_api_key"]
+    )
     data_source_name = clean_data_source_string(data_source)
-    dataset_path = f"hub://{os.environ['ACTIVELOOP_ORG_NAME']}/{data_source_name}"
-    if deeplake.exists(dataset_path):
+    dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}"
+    if deeplake.exists(dataset_path, token=st.session_state["activeloop_token"]):
         with st.spinner("Loading vector store..."):
             logger.info(f"{dataset_path} exists -> loading")
             vector_store = DeepLake(
-                dataset_path=dataset_path, read_only=True, embedding_function=embeddings
+                dataset_path=dataset_path,
+                read_only=True,
+                embedding_function=embeddings,
+                token=st.session_state["activeloop_token"],
             )
     else:
         with st.spinner("Reading, embedding and uploading data to hub..."):
@@ -226,7 +211,8 @@ def setup_vector_store(data_source):
             vector_store = DeepLake.from_documents(
                 docs,
                 embeddings,
-                dataset_path=f"hub://{os.environ['ACTIVELOOP_ORG_NAME']}/{data_source_name}",
+                dataset_path=f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}",
+                token=st.session_state["activeloop_token"],
             )
     return vector_store
 
@@ -242,7 +228,9 @@ def get_chain(data_source):
         "k": 10,
     }
     retriever.search_kwargs.update(search_kwargs)
-    model = ChatOpenAI(model_name=MODEL)
+    model = ChatOpenAI(
+        model_name=MODEL, openai_api_key=st.session_state["openai_api_key"]
+    )
     with st.spinner("Building langchain..."):
         chain = ConversationalRetrievalChain.from_llm(
             model,

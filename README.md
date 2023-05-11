@@ -15,9 +15,5 @@ This is an app that let's you ask questions about any data source by leveraging 
 ## Good to know
 
 - As default context this git repository is taken so you can directly start asking question about its functionality without chosing an own data source.
-- To run locally or deploy somewhere, execute:
-
-  ```cp .streamlit/secret.toml.template .streamlit/secret.toml```
-
-  and set necessary keys in the newly created secrets file. Another option is to manually set environment variables
+- To run locally or deploy somewhere, execute `cp .env.template .env` and set necessary keys in the newly created secrets file. Another option is to manually set environment variables
 - Yes, Chad in `DataChad` refers to the well-known [meme](https://www.google.com/search?q=chad+meme)

@@ -1,15 +1,18 @@
 import streamlit as st
+from dotenv import load_dotenv
 from streamlit_chat import message
 
 from constants import APP_NAME, DEFAULT_DATA_SOURCE, PAGE_ICON
 from utils import (
+    authenticate,
+    build_chain_and_clear_history,
     delete_uploaded_file,
     generate_response,
-    save_uploaded_file,
-    build_chain_and_clear_history,
-    validate_keys,
     logger,
+    save_uploaded_file,
 )
+
+load_dotenv()
 
 
 # Page options and header
@@ -33,22 +36,25 @@ if "data_source" not in st.session_state:
     st.session_state["data_source"] = ""
 if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
-
+if "openai_api_key" not in st.session_state:
+    st.session_state["openai_api_key"] = None
+if "activeloop_token" not in st.session_state:
+    st.session_state["activeloop_token"] = None
+if "activeloop_org_name" not in st.session_state:
+    st.session_state["activeloop_org_name"] = None
 
 # Sidebar
 with st.sidebar:
     st.title("Authentication")
     with st.form("authentication"):
-        openai_key = st.text_input("OpenAI API Key", type="password", key="openai_key")
-        activeloop_token = st.text_input(
-            "ActiveLoop Token", type="password", key="activeloop_token"
-        )
+        openai_api_key = st.text_input("OpenAI API Key", type="password")
+        activeloop_token = st.text_input("ActiveLoop Token", type="password")
         activeloop_org_name = st.text_input(
-            "ActiveLoop Organisation Name", type="password", key="activeloop_org_name"
+            "ActiveLoop Organisation Name", type="password"
         )
         submitted = st.form_submit_button("Submit")
         if submitted:
-            validate_keys(openai_key, activeloop_token, activeloop_org_name)
+            authenticate(openai_api_key, activeloop_token, activeloop_org_name)
 
     if not st.session_state["auth_ok"]:
         st.stop()
