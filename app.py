@@ -23,7 +23,7 @@ load_dotenv()
 
 # Page options and header
 st.set_option("client.showErrorDetails", True)
-st.set_page_config(page_title=APP_NAME, page_icon=PAGE_ICON)
+st.set_page_config(page_title=APP_NAME, page_icon=PAGE_ICON, initial_sidebar_state="expanded")
 st.markdown(
     f"<h1 style='text-align: center;'>{APP_NAME} {PAGE_ICON} <br> I know all about your data!</h1>",
     unsafe_allow_html=True,
@@ -63,13 +63,13 @@ with st.sidebar:
             "ActiveLoop Token",
             type="password",
             help=ACTIVELOOP_HELP,
-            placeholder="Optional, using ours if emtpty",
+            placeholder="Optional, using ours if empty",
         )
         activeloop_org_name = st.text_input(
             "ActiveLoop Organisation Name",
             type="password",
             help=ACTIVELOOP_HELP,
-            placeholder="Optional, using ours if emtpty",
+            placeholder="Optional, using ours if empty",
         )
         submitted = st.form_submit_button("Submit")
         if submitted:
