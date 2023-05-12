@@ -54,8 +54,16 @@ def authenticate(openai_api_key, activeloop_token, activeloop_org_name):
     # Validate all credentials are set and correct
     # Check for env variables to enable local dev and deployments with shared credentials
     openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
-    activeloop_token = activeloop_token or os.environ.get("ACTIVELOOP_TOKEN")
-    activeloop_org_name = activeloop_org_name or os.environ.get("ACTIVELOOP_ORG_NAME")
+    activeloop_token = (
+        activeloop_token
+        or os.environ.get("ACTIVELOOP_TOKEN")
+        or st.secrets.get("ACTIVELOOP_TOKEN")
+    )
+    activeloop_org_name = (
+        activeloop_org_name
+        or os.environ.get("ACTIVELOOP_ORG_NAME")
+        or st.secrets.get("ACTIVELOOP_ORG_NAME")
+    )
     if not (openai_api_key and activeloop_token and activeloop_org_name):
         st.session_state["auth_ok"] = False
         st.error("Credentials neither set nor stored", icon=PAGE_ICON)
@@ -93,7 +101,7 @@ def save_uploaded_file(uploaded_file):
     file = open(file_path, "wb")
     file.write(file_bytes)
     file.close()
-    logger.info(f"saved {file_path}")
+    logger.info(f"Saved {file_path}")
     return file_path
 
 
@@ -102,7 +110,7 @@ def delete_uploaded_file(uploaded_file):
     file_path = DATA_PATH / uploaded_file.name
     if os.path.exists(DATA_PATH):
         os.remove(file_path)
-        logger.info(f"removed {file_path}")
+        logger.info(f"Removed {file_path}")
 
 
 def load_git(data_source):
@@ -171,7 +179,7 @@ def load_any_data_source(data_source):
     if loader:
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
         docs = loader.load_and_split(text_splitter)
-        logger.info(f"loaded {len(docs)} document chucks")
+        logger.info(f"Loaded {len(docs)} document chucks")
         return docs
 
     error_msg = f"Failed to load {data_source}"

@@ -2,7 +2,13 @@ import streamlit as st
 from dotenv import load_dotenv
 from streamlit_chat import message
 
-from constants import APP_NAME, DEFAULT_DATA_SOURCE, PAGE_ICON
+from constants import (
+    ACTIVELOOP_HELP,
+    APP_NAME,
+    DEFAULT_DATA_SOURCE,
+    OPENAI_HELP,
+    PAGE_ICON,
+)
 from utils import (
     authenticate,
     build_chain_and_clear_history,
@@ -47,15 +53,29 @@ if "activeloop_org_name" not in st.session_state:
 with st.sidebar:
     st.title("Authentication")
     with st.form("authentication"):
-        openai_api_key = st.text_input("OpenAI API Key", type="password")
-        activeloop_token = st.text_input("ActiveLoop Token", type="password")
+        openai_api_key = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            help=OPENAI_HELP,
+            placeholder="This field is mandatory",
+        )
+        activeloop_token = st.text_input(
+            "ActiveLoop Token",
+            type="password",
+            help=ACTIVELOOP_HELP,
+            placeholder="Optional, using ours if emtpty",
+        )
         activeloop_org_name = st.text_input(
-            "ActiveLoop Organisation Name", type="password"
+            "ActiveLoop Organisation Name",
+            type="password",
+            help=ACTIVELOOP_HELP,
+            placeholder="Optional, using ours if emtpty",
         )
         submitted = st.form_submit_button("Submit")
         if submitted:
             authenticate(openai_api_key, activeloop_token, activeloop_org_name)
 
+    st.info("Learn how it works [here](https://github.com/gustavz/DataChad)")
     if not st.session_state["auth_ok"]:
         st.stop()
 
@@ -81,12 +101,12 @@ data_source = st.text_input(
 # generate new chain for new data source / uploaded file
 # make sure to do this only once per input / on change
 if data_source and data_source != st.session_state["data_source"]:
-    logger.info(f"data source provided: '{data_source}'")
+    logger.info(f"Data source provided: '{data_source}'")
     build_chain_and_clear_history(data_source)
     st.session_state["data_source"] = data_source
 
 if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
-    logger.info(f"uploaded file: '{uploaded_file.name}'")
+    logger.info(f"Uploaded file: '{uploaded_file.name}'")
     data_source = save_uploaded_file(uploaded_file)
     build_chain_and_clear_history(data_source)
     delete_uploaded_file(uploaded_file)
