@@ -9,6 +9,7 @@ from constants import (
     DEFAULT_DATA_SOURCE,
     OPENAI_HELP,
     PAGE_ICON,
+    USAGE_HELP,
 )
 from utils import (
     authenticate,
@@ -33,14 +34,16 @@ st.markdown(
 )
 
 # Initialise session state variables
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
-if "generated" not in st.session_state:
-    st.session_state["generated"] = []
 if "past" not in st.session_state:
     st.session_state["past"] = []
+if "usage" not in st.session_state:
+    st.session_state["usage"] = {}
+if "generated" not in st.session_state:
+    st.session_state["generated"] = []
 if "auth_ok" not in st.session_state:
     st.session_state["auth_ok"] = False
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = []
 if "data_source" not in st.session_state:
     st.session_state["data_source"] = ""
 if "uploaded_file" not in st.session_state:
@@ -84,6 +87,7 @@ with st.sidebar:
 
     clear_button = st.button("Clear Conversation", key="clear")
 
+
 # the chain can only be initialized after authentication is OK
 if "chain" not in st.session_state:
     build_chain_and_clear_history(DEFAULT_DATA_SOURCE)
@@ -115,7 +119,6 @@ if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
     delete_uploaded_file(uploaded_file)
     st.session_state["uploaded_file"] = uploaded_file
 
-
 # container for chat history
 response_container = st.container()
 # container for text box
@@ -131,9 +134,19 @@ with container:
         st.session_state["past"].append(user_input)
         st.session_state["generated"].append(output)
 
-
 if st.session_state["generated"]:
     with response_container:
         for i in range(len(st.session_state["generated"])):
             message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
             message(st.session_state["generated"][i], key=str(i))
+
+
+# Usage sidebar
+# Put at the end to display even the first input
+with st.sidebar:
+    if st.session_state["usage"]:
+        st.divider()
+        st.title("Usage", help=USAGE_HELP)
+        col1, col2 = st.columns(2)
+        col1.metric("Total Tokens", st.session_state["usage"]["total_tokens"])
+        col2.metric("Total Costs in $", st.session_state["usage"]["total_cost"])

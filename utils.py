@@ -7,6 +7,7 @@ import sys
 import deeplake
 import openai
 import streamlit as st
+from langchain.callbacks import get_openai_callback
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import (
@@ -101,7 +102,7 @@ def save_uploaded_file(uploaded_file):
     file = open(file_path, "wb")
     file.write(file_bytes)
     file.close()
-    logger.info(f"Saved {file_path}")
+    logger.info(f"Saved: {file_path}")
     return file_path
 
 
@@ -110,7 +111,7 @@ def delete_uploaded_file(uploaded_file):
     file_path = DATA_PATH / uploaded_file.name
     if os.path.exists(DATA_PATH):
         os.remove(file_path)
-        logger.info(f"Removed {file_path}")
+        logger.info(f"Removed: {file_path}")
 
 
 def load_git(data_source):
@@ -152,14 +153,14 @@ def load_any_data_source(data_source):
     loader = None
     if is_dir:
         loader = DirectoryLoader(data_source, recursive=True, silent_errors=True)
-    if is_git:
+    elif is_git:
         return load_git(data_source)
-    if is_web:
+    elif is_web:
         if is_pdf:
             loader = OnlinePDFLoader(data_source)
         else:
             loader = WebBaseLoader(data_source)
-    if is_file:
+    elif is_file:
         if is_text:
             loader = TextLoader(data_source)
         elif is_notebook:
@@ -179,7 +180,7 @@ def load_any_data_source(data_source):
     if loader:
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
         docs = loader.load_and_split(text_splitter)
-        logger.info(f"Loaded {len(docs)} document chucks")
+        logger.info(f"Loaded: {len(docs)} document chucks")
         return docs
 
     error_msg = f"Failed to load {data_source}"
@@ -205,7 +206,7 @@ def setup_vector_store(data_source):
     dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}"
     if deeplake.exists(dataset_path, token=st.session_state["activeloop_token"]):
         with st.spinner("Loading vector store..."):
-            logger.info(f"{dataset_path} exists -> loading")
+            logger.info(f"Dataset '{dataset_path}' exists -> loading")
             vector_store = DeepLake(
                 dataset_path=dataset_path,
                 read_only=True,
@@ -213,8 +214,10 @@ def setup_vector_store(data_source):
                 token=st.session_state["activeloop_token"],
             )
     else:
-        with st.spinner("Reading, embedding and uploading data to hub..."):
-            logger.info(f"{dataset_path} does not exist -> uploading")
+        with st.spinner(
+            "Reading, embedding and uploading data to hub..."
+        ), get_openai_callback() as cb:
+            logger.info(f"Dataset '{dataset_path}' does not exist -> uploading")
             docs = load_any_data_source(data_source)
             vector_store = DeepLake.from_documents(
                 docs,
@@ -222,6 +225,7 @@ def setup_vector_store(data_source):
                 dataset_path=f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}",
                 token=st.session_state["activeloop_token"],
             )
+            update_usage(cb)
     return vector_store
 
 
@@ -247,7 +251,7 @@ def get_chain(data_source):
             verbose=True,
             max_tokens_limit=3375,
         )
-        logger.info(f"{data_source} is ready to go!")
+        logger.info(f"Data source '{data_source}' is ready to go!")
     return chain
 
 
@@ -258,12 +262,28 @@ def build_chain_and_clear_history(data_source):
     st.session_state["chat_history"] = []
 
 
+def update_usage(cb):
+    # Accumulate API call usage via callbacks
+    logger.info(f"Usage: {cb}")
+    callback_properties = [
+        "total_tokens",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_cost",
+    ]
+    for prop in callback_properties:
+        value = getattr(cb, prop, 0)
+        st.session_state["usage"].setdefault(prop, 0)
+        st.session_state["usage"][prop] += value
+
+
 def generate_response(prompt):
     # call the chain to generate responses and add them to the chat history
-    with st.spinner("Generating response"):
+    with st.spinner("Generating response"), get_openai_callback() as cb:
         response = st.session_state["chain"](
             {"question": prompt, "chat_history": st.session_state["chat_history"]}
         )
-        logger.info(f"{response=}")
-        st.session_state["chat_history"].append((prompt, response["answer"]))
+        update_usage(cb)
+    logger.info(f"Response: '{response}'")
+    st.session_state["chat_history"].append((prompt, response["answer"]))
     return response["answer"]
