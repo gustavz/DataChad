@@ -67,7 +67,7 @@ def authenticate(openai_api_key, activeloop_token, activeloop_org_name):
     if not (openai_api_key and activeloop_token and activeloop_org_name):
         st.session_state["auth_ok"] = False
         st.error("Credentials neither set nor stored", icon=PAGE_ICON)
-        st.stop()
+        return
     try:
         # Try to access openai and deeplake
         with st.spinner("Authentifying..."):
@@ -81,7 +81,7 @@ def authenticate(openai_api_key, activeloop_token, activeloop_org_name):
         logger.error(f"Authentication failed with {e}")
         st.session_state["auth_ok"] = False
         st.error("Authentication failed", icon=PAGE_ICON)
-        st.stop()
+        return
     # store credentials in the session state
     st.session_state["auth_ok"] = True
     st.session_state["openai_api_key"] = openai_api_key
