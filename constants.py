@@ -7,6 +7,12 @@ PAGE_ICON = "🤖"
 DATA_PATH = Path.cwd() / "data"
 DEFAULT_DATA_SOURCE = "git@github.com:gustavz/DataChad.git"
 
+AUTHENTICATION_HELP = """
+Your credentials are only stored in your session state.\n
+The keys are neither exposed nor made visible or stored permanently in any way.\n
+Feel free to check out [the code base](https://github.com/gustavz/DataChad) to validate how things work.
+"""
+
 OPENAI_HELP = """
 You can sign-up for OpenAI's API [here](https://openai.com/blog/openai-api).\n
 Once you are logged in, you find the API keys [here](https://platform.openai.com/account/api-keys)

@@ -5,6 +5,7 @@ from streamlit_chat import message
 from constants import (
     ACTIVELOOP_HELP,
     APP_NAME,
+    AUTHENTICATION_HELP,
     DEFAULT_DATA_SOURCE,
     OPENAI_HELP,
     PAGE_ICON,
@@ -23,7 +24,9 @@ load_dotenv()
 
 # Page options and header
 st.set_option("client.showErrorDetails", True)
-st.set_page_config(page_title=APP_NAME, page_icon=PAGE_ICON, initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title=APP_NAME, page_icon=PAGE_ICON, initial_sidebar_state="expanded"
+)
 st.markdown(
     f"<h1 style='text-align: center;'>{APP_NAME} {PAGE_ICON} <br> I know all about your data!</h1>",
     unsafe_allow_html=True,
@@ -51,7 +54,7 @@ if "activeloop_org_name" not in st.session_state:
 
 # Sidebar
 with st.sidebar:
-    st.title("Authentication")
+    st.title("Authentication", help=AUTHENTICATION_HELP)
     with st.form("authentication"):
         openai_api_key = st.text_input(
             "OpenAI API Key",
