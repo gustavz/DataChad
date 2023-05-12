@@ -128,10 +128,10 @@ def load_git(data_source):
             )
             break
         except Exception as e:
-            logger.error(f"error loading git: {e}")
-        if os.path.exists(repo_path):
-            # cleanup repo afterwards
-            shutil.rmtree(repo_path)
+            logger.error(f"Error loading git: {e}")
+    if os.path.exists(repo_path):
+        # cleanup repo afterwards
+        shutil.rmtree(repo_path)
     return docs
 
 
