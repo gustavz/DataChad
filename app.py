@@ -21,7 +21,7 @@ from utils import (
 )
 
 # Page options and header
-st.set_option("client.showErrorDetails", True)
+st.set_option("client.showErrorDetails", False)
 st.set_page_config(
     page_title=APP_NAME, page_icon=PAGE_ICON, initial_sidebar_state="expanded"
 )

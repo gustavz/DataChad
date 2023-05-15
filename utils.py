@@ -7,6 +7,7 @@ import sys
 import deeplake
 import openai
 import streamlit as st
+from dotenv import load_dotenv
 from langchain.callbacks import get_openai_callback
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
@@ -29,6 +30,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import DeepLake
 
 from constants import APP_NAME, DATA_PATH, MODEL, PAGE_ICON
+
+# loads environment variables
+load_dotenv()
 
 logger = logging.getLogger(APP_NAME)
 
@@ -55,7 +59,11 @@ configure_logger(0)
 def authenticate(openai_api_key, activeloop_token, activeloop_org_name):
     # Validate all credentials are set and correct
     # Check for env variables to enable local dev and deployments with shared credentials
-    openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
+    openai_api_key = (
+        openai_api_key
+        or os.environ.get("OPENAI_API_KEY")
+        or st.secrets.get("OPENAI_API_KEY")
+    )
     activeloop_token = (
         activeloop_token
         or os.environ.get("ACTIVELOOP_TOKEN")
@@ -238,7 +246,7 @@ def get_chain(data_source):
     vector_store = setup_vector_store(data_source)
     retriever = vector_store.as_retriever()
     # Search params "fetch_k" and "k" define how many documents are pulled from the hub
-    # and selected after the document matching to build the context 
+    # and selected after the document matching to build the context
     # that is fed to the model together with your prompt
     search_kwargs = {
         "maximal_marginal_relevance": True,
