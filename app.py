@@ -1,5 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
 from streamlit_chat import message
 
 from constants import (
@@ -9,8 +8,8 @@ from constants import (
     DEFAULT_DATA_SOURCE,
     OPENAI_HELP,
     PAGE_ICON,
-    USAGE_HELP,
     REPO_URL,
+    USAGE_HELP,
 )
 from utils import (
     authenticate,
@@ -20,9 +19,6 @@ from utils import (
     logger,
     save_uploaded_file,
 )
-
-load_dotenv()
-
 
 # Page options and header
 st.set_option("client.showErrorDetails", True)
@@ -82,7 +78,7 @@ with st.sidebar:
         if submitted:
             authenticate(openai_api_key, activeloop_token, activeloop_org_name)
 
-    st.info("Learn how it works [here]({REPO_URL})")
+    st.info(f"Learn how it works [here]({REPO_URL})")
     if not st.session_state["auth_ok"]:
         st.stop()
 

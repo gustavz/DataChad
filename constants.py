@@ -1,5 +1,10 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# loads environment variables
+load_dotenv()
+
 APP_NAME = "DataChad"
 MODEL = "gpt-3.5-turbo"
 PAGE_ICON = "🤖"
