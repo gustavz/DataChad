@@ -5,23 +5,29 @@ from constants import (
     ACTIVELOOP_HELP,
     APP_NAME,
     AUTHENTICATION_HELP,
+    CHUNK_SIZE,
     DEFAULT_DATA_SOURCE,
+    ENABLE_ADVANCED_OPTIONS,
+    FETCH_K,
+    MAX_TOKENS,
     OPENAI_HELP,
     PAGE_ICON,
     REPO_URL,
+    TEMPERATURE,
     USAGE_HELP,
+    K,
 )
 from utils import (
     authenticate,
-    build_chain_and_clear_history,
     delete_uploaded_file,
     generate_response,
     logger,
     save_uploaded_file,
+    update_chain,
 )
 
 # Page options and header
-st.set_option("client.showErrorDetails", False)
+st.set_option("client.showErrorDetails", True)
 st.set_page_config(
     page_title=APP_NAME, page_icon=PAGE_ICON, initial_sidebar_state="expanded"
 )
@@ -31,26 +37,40 @@ st.markdown(
 )
 
 # Initialise session state variables
+# Chat and Data Source
 if "past" not in st.session_state:
     st.session_state["past"] = []
 if "usage" not in st.session_state:
     st.session_state["usage"] = {}
-if "generated" not in st.session_state:
-    st.session_state["generated"] = []
-if "auth_ok" not in st.session_state:
-    st.session_state["auth_ok"] = False
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
+if "generated" not in st.session_state:
+    st.session_state["generated"] = []
 if "data_source" not in st.session_state:
-    st.session_state["data_source"] = ""
+    st.session_state["data_source"] = DEFAULT_DATA_SOURCE
 if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
+# Authentication and Credentials
+if "auth_ok" not in st.session_state:
+    st.session_state["auth_ok"] = False
 if "openai_api_key" not in st.session_state:
     st.session_state["openai_api_key"] = None
 if "activeloop_token" not in st.session_state:
     st.session_state["activeloop_token"] = None
 if "activeloop_org_name" not in st.session_state:
     st.session_state["activeloop_org_name"] = None
+# Advanced Options
+if "k" not in st.session_state:
+    st.session_state["k"] = K
+if "fetch_k" not in st.session_state:
+    st.session_state["fetch_k"] = FETCH_K
+if "chunk_size" not in st.session_state:
+    st.session_state["chunk_size"] = CHUNK_SIZE
+if "temperature" not in st.session_state:
+    st.session_state["temperature"] = TEMPERATURE
+if "max_tokens" not in st.session_state:
+    st.session_state["max_tokens"] = MAX_TOKENS
+
 
 # Sidebar with Authentication
 # Only start App if authentication is OK
@@ -86,10 +106,62 @@ with st.sidebar:
     # Clear button to reset all chat communication
     clear_button = st.button("Clear Conversation", key="clear")
 
+    # Advanced Options
+    if ENABLE_ADVANCED_OPTIONS:
+        advanced_options = st.checkbox(
+            "Advanced Options", help="Caution! This may break things!"
+        )
+        if advanced_options:
+            with st.form("advanced_options"):
+                temperature = st.slider(
+                    "temperature",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=TEMPERATURE,
+                    help="Controls the randomness of the language model output",
+                )
+                col1, col2 = st.columns(2)
+                fetch_k = col1.number_input(
+                    "k_fetch",
+                    min_value=1,
+                    max_value=100,
+                    value=FETCH_K,
+                    help="The number of documents to pull from the vector database",
+                )
+                k = col2.number_input(
+                    "k",
+                    min_value=1,
+                    max_value=100,
+                    value=K,
+                    help="The number of most similar documents returned from the vector store",
+                )
+                chunk_size = col1.number_input(
+                    "chunk_size",
+                    min_value=1,
+                    max_value=100000,
+                    value=CHUNK_SIZE,
+                    help="The size at which the text is divided into smaller chunks before being embedded",
+                )
+                max_tokens = col2.number_input(
+                    "max_tokens",
+                    min_value=1,
+                    max_value=4069,
+                    value=MAX_TOKENS,
+                    help="Limits the documents returned from database based on tokens",
+                )
+                applied = st.form_submit_button("Apply")
+                if applied:
+                    st.session_state["k"] = k
+                    st.session_state["fetch_k"] = fetch_k
+                    st.session_state["chunk_size"] = chunk_size
+                    st.session_state["temperature"] = temperature
+                    st.session_state["max_tokens"] = max_tokens
+                    update_chain()
+
 
 # the chain can only be initialized after authentication is OK
 if "chain" not in st.session_state:
-    build_chain_and_clear_history(DEFAULT_DATA_SOURCE)
+    update_chain()
 
 if clear_button:
     # resets all chat history related caches
@@ -108,15 +180,16 @@ data_source = st.text_input(
 # make sure to do this only once per input / on change
 if data_source and data_source != st.session_state["data_source"]:
     logger.info(f"Data source provided: '{data_source}'")
-    build_chain_and_clear_history(data_source)
     st.session_state["data_source"] = data_source
+    update_chain()
 
 if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
     logger.info(f"Uploaded file: '{uploaded_file.name}'")
-    data_source = save_uploaded_file(uploaded_file)
-    build_chain_and_clear_history(data_source)
-    delete_uploaded_file(uploaded_file)
     st.session_state["uploaded_file"] = uploaded_file
+    data_source = save_uploaded_file(uploaded_file)
+    st.session_state["data_source"] = data_source
+    update_chain()
+    delete_uploaded_file(uploaded_file)
 
 # container for chat history
 response_container = st.container()

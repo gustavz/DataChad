@@ -29,7 +29,17 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import DeepLake
 
-from constants import APP_NAME, DATA_PATH, MODEL, PAGE_ICON
+from constants import (
+    APP_NAME,
+    CHUNK_SIZE,
+    DATA_PATH,
+    FETCH_K,
+    MAX_TOKENS,
+    MODEL,
+    PAGE_ICON,
+    TEMPERATURE,
+    K,
+)
 
 # loads environment variables
 load_dotenv()
@@ -123,12 +133,14 @@ def delete_uploaded_file(uploaded_file):
         logger.info(f"Removed: {file_path}")
 
 
-def load_git(data_source):
+def load_git(data_source, chunk_size=CHUNK_SIZE):
     # We need to try both common main branches
     # Thank you github for the "master" to "main" switch
     repo_name = data_source.split("/")[-1].split(".")[0]
     repo_path = str(DATA_PATH / repo_name)
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=0
+    )
     branches = ["main", "master"]
     for branch in branches:
         if os.path.exists(repo_path):
@@ -146,7 +158,7 @@ def load_git(data_source):
     return docs
 
 
-def load_any_data_source(data_source):
+def load_any_data_source(data_source, chunk_size=CHUNK_SIZE):
     # Ugly thing that decides how to load data
     # It aint much, but it's honest work
     is_text = data_source.endswith(".txt")
@@ -165,7 +177,7 @@ def load_any_data_source(data_source):
     if is_dir:
         loader = DirectoryLoader(data_source, recursive=True, silent_errors=True)
     elif is_git:
-        return load_git(data_source)
+        return load_git(data_source, chunk_size)
     elif is_web:
         if is_pdf:
             loader = OnlinePDFLoader(data_source)
@@ -190,7 +202,9 @@ def load_any_data_source(data_source):
             loader = UnstructuredFileLoader(data_source)
     if loader:
         # Chunk size is a major trade-off parameter to control result accuracy over computaion
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=0
+        )
         docs = loader.load_and_split(text_splitter)
         logger.info(f"Loaded: {len(docs)} document chucks")
         return docs
@@ -201,21 +215,21 @@ def load_any_data_source(data_source):
     st.stop()
 
 
-def clean_data_source_string(data_source):
+def clean_data_source_string(data_source_string):
     # replace all non-word characters with dashes
     # to get a string that can be used to create a new dataset
-    dashed_string = re.sub(r"\W+", "-", data_source)
+    dashed_string = re.sub(r"\W+", "-", data_source_string)
     cleaned_string = re.sub(r"--+", "- ", dashed_string).strip("-")
     return cleaned_string
 
 
-def setup_vector_store(data_source):
+def setup_vector_store(data_source, chunk_size=CHUNK_SIZE):
     # either load existing vector store or upload a new one to the hub
     embeddings = OpenAIEmbeddings(
         disallowed_special=(), openai_api_key=st.session_state["openai_api_key"]
     )
     data_source_name = clean_data_source_string(data_source)
-    dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}"
+    dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}-{chunk_size}"
     if deeplake.exists(dataset_path, token=st.session_state["activeloop_token"]):
         with st.spinner("Loading vector store..."):
             logger.info(f"Dataset '{dataset_path}' exists -> loading")
@@ -226,24 +240,28 @@ def setup_vector_store(data_source):
                 token=st.session_state["activeloop_token"],
             )
     else:
-        with st.spinner(
-            "Reading, embedding and uploading data to hub..."
-        ), get_openai_callback() as cb:
+        with st.spinner("Reading, embedding and uploading data to hub..."):
             logger.info(f"Dataset '{dataset_path}' does not exist -> uploading")
-            docs = load_any_data_source(data_source)
+            docs = load_any_data_source(data_source, chunk_size)
             vector_store = DeepLake.from_documents(
                 docs,
                 embeddings,
-                dataset_path=f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}",
+                dataset_path=dataset_path,
                 token=st.session_state["activeloop_token"],
             )
-            update_usage(cb)
     return vector_store
 
 
-def get_chain(data_source):
+def build_chain(
+    data_source,
+    k=K,
+    fetch_k=FETCH_K,
+    chunk_size=CHUNK_SIZE,
+    temperature=TEMPERATURE,
+    max_tokens=MAX_TOKENS,
+):
     # create the langchain that will be called to generate responses
-    vector_store = setup_vector_store(data_source)
+    vector_store = setup_vector_store(data_source, chunk_size)
     retriever = vector_store.as_retriever()
     # Search params "fetch_k" and "k" define how many documents are pulled from the hub
     # and selected after the document matching to build the context
@@ -251,31 +269,39 @@ def get_chain(data_source):
     search_kwargs = {
         "maximal_marginal_relevance": True,
         "distance_metric": "cos",
-        "fetch_k": 20,
-        "k": 10,
+        "fetch_k": fetch_k,
+        "k": k,
     }
     retriever.search_kwargs.update(search_kwargs)
     model = ChatOpenAI(
-        model_name=MODEL, openai_api_key=st.session_state["openai_api_key"]
+        model_name=MODEL,
+        temperature=temperature,
+        openai_api_key=st.session_state["openai_api_key"],
     )
-    with st.spinner("Building langchain..."):
-        chain = ConversationalRetrievalChain.from_llm(
-            model,
-            retriever=retriever,
-            chain_type="stuff",
-            verbose=True,
-            # we limit the maximum number of used tokens
-            # to prevent running into the models token limit of 4096
-            max_tokens_limit=3375,
-        )
-        logger.info(f"Data source '{data_source}' is ready to go!")
+    chain = ConversationalRetrievalChain.from_llm(
+        model,
+        retriever=retriever,
+        chain_type="stuff",
+        verbose=True,
+        # we limit the maximum number of used tokens
+        # to prevent running into the models token limit of 4096
+        max_tokens_limit=max_tokens,
+    )
+    logger.info(f"Data source '{data_source}' is ready to go!")
     return chain
 
 
-def build_chain_and_clear_history(data_source):
-    # Get chain and store it in the session state
+def update_chain():
+    # Build chain with parameters from session state and store it there
     # Also delete chat history to not confuse the bot with old context
-    st.session_state["chain"] = get_chain(data_source)
+    st.session_state["chain"] = build_chain(
+        data_source=st.session_state["data_source"],
+        k=st.session_state["k"],
+        fetch_k=st.session_state["fetch_k"],
+        chunk_size=st.session_state["chunk_size"],
+        temperature=st.session_state["temperature"],
+        max_tokens=st.session_state["max_tokens"],
+    )
     st.session_state["chat_history"] = []
 
 
