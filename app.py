@@ -52,7 +52,8 @@ if "activeloop_token" not in st.session_state:
 if "activeloop_org_name" not in st.session_state:
     st.session_state["activeloop_org_name"] = None
 
-# Sidebar
+# Sidebar with Authentication
+# Only start App if authentication is OK
 with st.sidebar:
     st.title("Authentication", help=AUTHENTICATION_HELP)
     with st.form("authentication"):
@@ -82,6 +83,7 @@ with st.sidebar:
     if not st.session_state["auth_ok"]:
         st.stop()
 
+    # Clear button to reset all chat communication
     clear_button = st.button("Clear Conversation", key="clear")
 
 
@@ -90,7 +92,7 @@ if "chain" not in st.session_state:
     build_chain_and_clear_history(DEFAULT_DATA_SOURCE)
 
 if clear_button:
-    # reset chat history
+    # resets all chat history related caches
     st.session_state["past"] = []
     st.session_state["generated"] = []
     st.session_state["chat_history"] = []
@@ -121,6 +123,8 @@ response_container = st.container()
 # container for text box
 container = st.container()
 
+# As streamlit reruns the whole script on each change
+# it is necessary to repopulate the chat containers
 with container:
     with st.form(key="prompt_input", clear_on_submit=True):
         user_input = st.text_area("You:", key="input", height=100)
@@ -138,8 +142,8 @@ if st.session_state["generated"]:
             message(st.session_state["generated"][i], key=str(i))
 
 
-# Usage sidebar
-# Put at the end to display even the first input
+# Usage sidebar with total used tokens and costs
+# We put this at the end to be able to show usage starting with the first response
 with st.sidebar:
     if st.session_state["usage"]:
         st.divider()
