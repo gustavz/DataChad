@@ -10,6 +10,7 @@ from constants import (
     OPENAI_HELP,
     PAGE_ICON,
     USAGE_HELP,
+    REPO_URL,
 )
 from utils import (
     authenticate,
@@ -81,7 +82,7 @@ with st.sidebar:
         if submitted:
             authenticate(openai_api_key, activeloop_token, activeloop_org_name)
 
-    st.info("Learn how it works [here](https://github.com/gustavz/DataChad)")
+    st.info("Learn how it works [here]({REPO_URL})")
     if not st.session_state["auth_ok"]:
         st.stop()
 

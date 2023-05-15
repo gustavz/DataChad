@@ -7,10 +7,12 @@ PAGE_ICON = "🤖"
 DATA_PATH = Path.cwd() / "data"
 DEFAULT_DATA_SOURCE = "git@github.com:gustavz/DataChad.git"
 
-AUTHENTICATION_HELP = """
+REPO_URL = "https://github.com/gustavz/DataChad"
+
+AUTHENTICATION_HELP = f"""
 Your credentials are only stored in your session state.\n
 The keys are neither exposed nor made visible or stored permanently in any way.\n
-Feel free to check out [the code base](https://github.com/gustavz/DataChad) to validate how things work.
+Feel free to check out [the code base]({REPO_URL}) to validate how things work.
 """
 
 OPENAI_HELP = """
