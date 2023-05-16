@@ -40,6 +40,7 @@ from constants import (
     MAX_TOKENS,
     MODEL,
     PAGE_ICON,
+    REPO_URL,
     TEMPERATURE,
     K,
 )
@@ -195,6 +196,14 @@ def delete_uploaded_file(uploaded_file: UploadedFile) -> None:
         logger.info(f"Removed: {file_path}")
 
 
+def handle_load_error(e: str = None) -> None:
+    e = e or "No Loader found for your data source. Consider contributing:  {REPO_URL}!"
+    error_msg = f"Failed to load {st.session_state['data_source']} with Error:\n{e}"
+    st.error(error_msg, icon=PAGE_ICON)
+    logger.info(error_msg)
+    st.stop()
+
+
 def load_git(data_source: str, chunk_size: int = CHUNK_SIZE) -> List[Document]:
     # We need to try both common main branches
     # Thank you github for the "master" to "main" switch
@@ -213,11 +222,14 @@ def load_git(data_source: str, chunk_size: int = CHUNK_SIZE) -> List[Document]:
             )
             break
         except Exception as e:
-            logger.error(f"Error loading git: {e}")
+            logger.info(f"Error loading git: {e}")
     if os.path.exists(repo_path):
         # cleanup repo afterwards
         shutil.rmtree(repo_path)
-    return docs
+    try:
+        return docs
+    except Exception as e:
+        handle_load_error()
 
 
 def load_any_data_source(
@@ -264,7 +276,7 @@ def load_any_data_source(
             loader = PythonLoader(data_source)
         else:
             loader = UnstructuredFileLoader(data_source)
-    if loader:
+    try:
         # Chunk size is a major trade-off parameter to control result accuracy over computaion
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=0
@@ -272,11 +284,8 @@ def load_any_data_source(
         docs = loader.load_and_split(text_splitter)
         logger.info(f"Loaded: {len(docs)} document chucks")
         return docs
-
-    error_msg = f"Failed to load {data_source}"
-    st.error(error_msg, icon=PAGE_ICON)
-    logger.info(error_msg)
-    st.stop()
+    except Exception as e:
+        handle_load_error(e if loader else None)
 
 
 def clean_data_source_string(data_source_string: str) -> str:
@@ -358,15 +367,20 @@ def build_chain(
 def update_chain() -> None:
     # Build chain with parameters from session state and store it back
     # Also delete chat history to not confuse the bot with old context
-    st.session_state["chain"] = build_chain(
-        data_source=st.session_state["data_source"],
-        k=st.session_state["k"],
-        fetch_k=st.session_state["fetch_k"],
-        chunk_size=st.session_state["chunk_size"],
-        temperature=st.session_state["temperature"],
-        max_tokens=st.session_state["max_tokens"],
-    )
-    st.session_state["chat_history"] = []
+    try:
+        st.session_state["chain"] = build_chain(
+            data_source=st.session_state["data_source"],
+            k=st.session_state["k"],
+            fetch_k=st.session_state["fetch_k"],
+            chunk_size=st.session_state["chunk_size"],
+            temperature=st.session_state["temperature"],
+            max_tokens=st.session_state["max_tokens"],
+        )
+        st.session_state["chat_history"] = []
+    except Exception as e:
+        msg = f"Failed to build chain for data source {st.session_state['data_source']} with error: {e}"
+        logger.error(msg)
+        st.error(msg, icon=PAGE_ICON)
 
 
 def update_usage(cb: OpenAICallbackHandler) -> None:
