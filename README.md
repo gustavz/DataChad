@@ -18,3 +18,7 @@ This is an app that let's you ask questions about any data source by leveraging 
 - To run locally or deploy somewhere, execute `cp .env.template .env` and set credentials in the newly created .env file. Other options are manually setting of system environment variables, or storing them into `.streamlit/secrets.toml`.
 - Your data won't load? Feel free to open an Issue or PR and contribute!
 - Yes, Chad in `DataChad` refers to the well-known [meme](https://www.google.com/search?q=chad+meme)
+
+## How does it look like?
+
+<img src="./datachad.png" width="100%"/>
