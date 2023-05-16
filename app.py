@@ -18,10 +18,10 @@ from constants import (
     K,
 )
 from utils import (
+    advanced_options_form,
     authenticate,
     delete_uploaded_file,
     generate_response,
-    handle_advanced_options,
     logger,
     save_uploaded_file,
     update_chain,
@@ -109,7 +109,7 @@ with st.sidebar:
 
     # Advanced Options
     if ENABLE_ADVANCED_OPTIONS:
-        handle_advanced_options()
+        advanced_options_form()
 
 
 # the chain can only be initialized after authentication is OK
