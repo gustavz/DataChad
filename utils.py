@@ -110,6 +110,63 @@ def authenticate(openai_api_key, activeloop_token, activeloop_org_name):
     logger.info("Authentification successful!")
 
 
+def handle_advanced_options():
+    # Input Form that takes advanced options and rebuilds chain with them
+    advanced_options = st.checkbox(
+        "Advanced Options", help="Caution! This may break things!"
+    )
+    if advanced_options:
+        with st.form("advanced_options"):
+            temperature = st.slider(
+                "temperature",
+                min_value=0.0,
+                max_value=1.0,
+                value=TEMPERATURE,
+                help="Controls the randomness of the language model output",
+            )
+            col1, col2 = st.columns(2)
+            fetch_k = col1.number_input(
+                "k_fetch",
+                min_value=1,
+                max_value=100,
+                value=FETCH_K,
+                help="The number of documents to pull from the vector database",
+            )
+            k = col2.number_input(
+                "k",
+                min_value=1,
+                max_value=100,
+                value=K,
+                help="The number of most similar documents to build the context from",
+            )
+            chunk_size = col1.number_input(
+                "chunk_size",
+                min_value=1,
+                max_value=100000,
+                value=CHUNK_SIZE,
+                help=(
+                    "The size at which the text is divided into smaller chunks "
+                    "before being embedded.\n\nChanging this parameter makes re-embedding "
+                    "and re-uploading the data to the database necessary "
+                ),
+            )
+            max_tokens = col2.number_input(
+                "max_tokens",
+                min_value=1,
+                max_value=4069,
+                value=MAX_TOKENS,
+                help="Limits the documents returned from database based on number of tokens",
+            )
+            applied = st.form_submit_button("Apply")
+            if applied:
+                st.session_state["k"] = k
+                st.session_state["fetch_k"] = fetch_k
+                st.session_state["chunk_size"] = chunk_size
+                st.session_state["temperature"] = temperature
+                st.session_state["max_tokens"] = max_tokens
+                update_chain()
+
+
 def save_uploaded_file(uploaded_file):
     # streamlit uploaded files need to be stored locally
     # before embedded and uploaded to the hub
