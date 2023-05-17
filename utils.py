@@ -197,39 +197,41 @@ def delete_uploaded_file(uploaded_file: UploadedFile) -> None:
 
 
 def handle_load_error(e: str = None) -> None:
-    e = e or "No Loader found for your data source. Consider contributing:  {REPO_URL}!"
-    error_msg = f"Failed to load {st.session_state['data_source']} with Error:\n{e}"
+    error_msg = f"Failed to load '{st.session_state['data_source']}':\n\n{e}"
     st.error(error_msg, icon=PAGE_ICON)
-    logger.info(error_msg)
+    logger.error(error_msg)
     st.stop()
 
 
 def load_git(data_source: str, chunk_size: int = CHUNK_SIZE) -> List[Document]:
     # We need to try both common main branches
     # Thank you github for the "master" to "main" switch
+    # we need to make sure the data path exists
+    if not os.path.exists(DATA_PATH):
+        os.makedirs(DATA_PATH)
     repo_name = data_source.split("/")[-1].split(".")[0]
     repo_path = str(DATA_PATH / repo_name)
+    clone_url = data_source
+    if os.path.exists(repo_path):
+        clone_url = None
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=0
     )
     branches = ["main", "master"]
     for branch in branches:
-        if os.path.exists(repo_path):
-            data_source = None
         try:
-            docs = GitLoader(repo_path, data_source, branch).load_and_split(
-                text_splitter
-            )
+            docs = GitLoader(repo_path, clone_url, branch).load_and_split(text_splitter)
             break
         except Exception as e:
-            logger.info(f"Error loading git: {e}")
+            logger.error(f"Error loading git: {e}")
     if os.path.exists(repo_path):
         # cleanup repo afterwards
         shutil.rmtree(repo_path)
     try:
         return docs
-    except Exception as e:
-        handle_load_error()
+    except:
+        msg = "Make sure to use HTTPS git repo links"
+        handle_load_error(msg)
 
 
 def load_any_data_source(
@@ -285,7 +287,12 @@ def load_any_data_source(
         logger.info(f"Loaded: {len(docs)} document chucks")
         return docs
     except Exception as e:
-        handle_load_error(e if loader else None)
+        msg = (
+            e
+            if loader
+            else f"No Loader found for your data source. Consider contributing:  {REPO_URL}!"
+        )
+        handle_load_error(msg)
 
 
 def clean_data_source_string(data_source_string: str) -> str:
@@ -378,7 +385,7 @@ def update_chain() -> None:
         )
         st.session_state["chat_history"] = []
     except Exception as e:
-        msg = f"Failed to build chain for data source {st.session_state['data_source']} with error: {e}"
+        msg = f"Failed to build chain for data source '{st.session_state['data_source']}' with error: {e}"
         logger.error(msg)
         st.error(msg, icon=PAGE_ICON)
 

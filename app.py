@@ -122,13 +122,13 @@ if clear_button:
     st.session_state["generated"] = []
     st.session_state["chat_history"] = []
 
+
 # file upload and data source inputs
 uploaded_file = st.file_uploader("Upload a file")
 data_source = st.text_input(
     "Enter any data source",
     placeholder="Any path or url pointing to a file or directory of files",
 )
-
 
 # generate new chain for new data source / uploaded file
 # make sure to do this only once per input / on change
@@ -144,6 +144,7 @@ if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
     st.session_state["data_source"] = data_source
     update_chain()
     delete_uploaded_file(uploaded_file)
+
 
 # container for chat history
 response_container = st.container()

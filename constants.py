@@ -12,7 +12,7 @@ MAX_TOKENS = 3357
 ENABLE_ADVANCED_OPTIONS = True
 
 DATA_PATH = Path.cwd() / "data"
-DEFAULT_DATA_SOURCE = "git@github.com:gustavz/DataChad.git"
+DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
 REPO_URL = "https://github.com/gustavz/DataChad"
 
