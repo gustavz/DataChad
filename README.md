@@ -16,6 +16,7 @@ This is an app that let's you ask questions about any data source by leveraging 
 
 - As default context this git repository is taken so you can directly start asking question about its functionality without chosing an own data source.
 - To run locally or deploy somewhere, execute `cp .env.template .env` and set credentials in the newly created .env file. Other options are manually setting of system environment variables, or storing them into `.streamlit/secrets.toml`.
+- If you have credentials set like explained above, you can just hit `submit` in the authentication without reentering your credentials in the app.
 - Your data won't load? Feel free to open an Issue or PR and contribute!
 - Yes, Chad in `DataChad` refers to the well-known [meme](https://www.google.com/search?q=chad+meme)
 
@@ -28,3 +29,4 @@ If you like to contribute, feel free to grab any task
 - [ ] Add option to choose model and embeddings
 - [ ] Enable fully local / private mode
 - [ ] Refactor utils, especially the loaders
+- [ ] Add Image caption and Audio transcription support
