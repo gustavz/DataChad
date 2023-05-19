@@ -22,3 +22,9 @@ This is an app that let's you ask questions about any data source by leveraging 
 ## How does it look like?
 
 <img src="./datachad.png" width="100%"/>
+
+## TODO LIST
+If you like to contribute, feel free to grab any task
+- [ ] Add option to choose model and embeddings
+- [ ] Enable fully local / private mode
+- [ ] Refactor utils, especially the loaders

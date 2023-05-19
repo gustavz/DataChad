@@ -37,40 +37,28 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+SESSION_DEFAULTS = {
+    "past": [],
+    "usage": {},
+    "chat_history": [],
+    "generated": [],
+    "data_source": DEFAULT_DATA_SOURCE,
+    "uploaded_file": None,
+    "auth_ok": False,
+    "openai_api_key": None,
+    "activeloop_token": None,
+    "activeloop_org_name": None,
+    "k": K,
+    "fetch_k": FETCH_K,
+    "chunk_size": CHUNK_SIZE,
+    "temperature": TEMPERATURE,
+    "max_tokens": MAX_TOKENS,
+}
 # Initialise session state variables
-# Chat and Data Source
-if "past" not in st.session_state:
-    st.session_state["past"] = []
-if "usage" not in st.session_state:
-    st.session_state["usage"] = {}
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
-if "generated" not in st.session_state:
-    st.session_state["generated"] = []
-if "data_source" not in st.session_state:
-    st.session_state["data_source"] = DEFAULT_DATA_SOURCE
-if "uploaded_file" not in st.session_state:
-    st.session_state["uploaded_file"] = None
-# Authentication and Credentials
-if "auth_ok" not in st.session_state:
-    st.session_state["auth_ok"] = False
-if "openai_api_key" not in st.session_state:
-    st.session_state["openai_api_key"] = None
-if "activeloop_token" not in st.session_state:
-    st.session_state["activeloop_token"] = None
-if "activeloop_org_name" not in st.session_state:
-    st.session_state["activeloop_org_name"] = None
-# Advanced Options
-if "k" not in st.session_state:
-    st.session_state["k"] = K
-if "fetch_k" not in st.session_state:
-    st.session_state["fetch_k"] = FETCH_K
-if "chunk_size" not in st.session_state:
-    st.session_state["chunk_size"] = CHUNK_SIZE
-if "temperature" not in st.session_state:
-    st.session_state["temperature"] = TEMPERATURE
-if "max_tokens" not in st.session_state:
-    st.session_state["max_tokens"] = MAX_TOKENS
+for k, v in SESSION_DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 
 # Sidebar with Authentication

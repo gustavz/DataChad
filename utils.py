@@ -263,7 +263,7 @@ def load_any_data_source(
             loader = WebBaseLoader(data_source)
     elif is_file:
         if is_text:
-            loader = TextLoader(data_source)
+            loader = TextLoader(data_source, encoding="utf-8")
         elif is_notebook:
             loader = NotebookLoader(data_source)
         elif is_pdf:
