@@ -26,7 +26,7 @@ This is an app that let's you ask questions about any data source by leveraging 
 
 ## TODO LIST
 If you like to contribute, feel free to grab any task
+- [x] Refactor utils, especially the loaders
 - [ ] Add option to choose model and embeddings
 - [ ] Enable fully local / private mode
-- [ ] Refactor utils, especially the loaders
 - [ ] Add Image caption and Audio transcription support

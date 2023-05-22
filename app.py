@@ -5,20 +5,22 @@ from constants import (
     ACTIVELOOP_HELP,
     APP_NAME,
     AUTHENTICATION_HELP,
+    CHUNK_OVERLAP,
     CHUNK_SIZE,
     DEFAULT_DATA_SOURCE,
+    EMBEDDINGS,
     ENABLE_ADVANCED_OPTIONS,
     FETCH_K,
     MAX_TOKENS,
+    MODEL,
     OPENAI_HELP,
     PAGE_ICON,
-    REPO_URL,
+    PROJECT_URL,
     TEMPERATURE,
     USAGE_HELP,
     K,
 )
 from utils import (
-    advanced_options_form,
     authenticate,
     delete_uploaded_file,
     generate_response,
@@ -49,9 +51,12 @@ SESSION_DEFAULTS = {
     "openai_api_key": None,
     "activeloop_token": None,
     "activeloop_org_name": None,
+    "model": MODEL,
+    "embeddings": EMBEDDINGS,
     "k": K,
     "fetch_k": FETCH_K,
     "chunk_size": CHUNK_SIZE,
+    "chunk_overlap": CHUNK_OVERLAP,
     "temperature": TEMPERATURE,
     "max_tokens": MAX_TOKENS,
 }
@@ -61,9 +66,7 @@ for k, v in SESSION_DEFAULTS.items():
         st.session_state[k] = v
 
 
-# Sidebar with Authentication
-# Only start App if authentication is OK
-with st.sidebar:
+def authentication_form() -> None:
     st.title("Authentication", help=AUTHENTICATION_HELP)
     with st.form("authentication"):
         openai_api_key = st.text_input(
@@ -88,7 +91,70 @@ with st.sidebar:
         if submitted:
             authenticate(openai_api_key, activeloop_token, activeloop_org_name)
 
-    st.info(f"Learn how it works [here]({REPO_URL})")
+
+def advanced_options_form() -> None:
+    # Input Form that takes advanced options and rebuilds chain with them
+    advanced_options = st.checkbox(
+        "Advanced Options", help="Caution! This may break things!"
+    )
+    if advanced_options:
+        with st.form("advanced_options"):
+            temperature = st.slider(
+                "temperature",
+                min_value=0.0,
+                max_value=1.0,
+                value=TEMPERATURE,
+                help="Controls the randomness of the language model output",
+            )
+            col1, col2 = st.columns(2)
+            fetch_k = col1.number_input(
+                "k_fetch",
+                min_value=1,
+                max_value=1000,
+                value=FETCH_K,
+                help="The number of documents to pull from the vector database",
+            )
+            k = col2.number_input(
+                "k",
+                min_value=1,
+                max_value=100,
+                value=K,
+                help="The number of most similar documents to build the context from",
+            )
+            chunk_size = col1.number_input(
+                "chunk_size",
+                min_value=1,
+                max_value=100000,
+                value=CHUNK_SIZE,
+                help=(
+                    "The size at which the text is divided into smaller chunks "
+                    "before being embedded.\n\nChanging this parameter makes re-embedding "
+                    "and re-uploading the data to the database necessary "
+                ),
+            )
+            max_tokens = col2.number_input(
+                "max_tokens",
+                min_value=1,
+                max_value=4069,
+                value=MAX_TOKENS,
+                help="Limits the documents returned from database based on number of tokens",
+            )
+            applied = st.form_submit_button("Apply")
+            if applied:
+                st.session_state["k"] = k
+                st.session_state["fetch_k"] = fetch_k
+                st.session_state["chunk_size"] = chunk_size
+                st.session_state["temperature"] = temperature
+                st.session_state["max_tokens"] = max_tokens
+                update_chain()
+
+
+# Sidebar with Authentication and Advanced Options
+with st.sidebar:
+    authentication_form()
+
+    st.info(f"Learn how it works [here]({PROJECT_URL})")
+    # Only start App if authentication is OK
     if not st.session_state["auth_ok"]:
         st.stop()
 
@@ -98,11 +164,6 @@ with st.sidebar:
     # Advanced Options
     if ENABLE_ADVANCED_OPTIONS:
         advanced_options_form()
-
-
-# the chain can only be initialized after authentication is OK
-if "chain" not in st.session_state:
-    update_chain()
 
 if clear_button:
     # resets all chat history related caches
@@ -118,6 +179,10 @@ data_source = st.text_input(
     placeholder="Any path or url pointing to a file or directory of files",
 )
 
+# the chain can only be initialized after authentication is OK
+if "chain" not in st.session_state:
+    update_chain()
+
 # generate new chain for new data source / uploaded file
 # make sure to do this only once per input / on change
 if data_source and data_source != st.session_state["data_source"]:
@@ -128,28 +193,28 @@ if data_source and data_source != st.session_state["data_source"]:
 if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
     logger.info(f"Uploaded file: '{uploaded_file.name}'")
     st.session_state["uploaded_file"] = uploaded_file
-    data_source = save_uploaded_file(uploaded_file)
+    data_source = save_uploaded_file()
     st.session_state["data_source"] = data_source
     update_chain()
-    delete_uploaded_file(uploaded_file)
+    delete_uploaded_file()
 
 
 # container for chat history
 response_container = st.container()
 # container for text box
-container = st.container()
+text_container = st.container()
 
 # As streamlit reruns the whole script on each change
 # it is necessary to repopulate the chat containers
-with container:
+with text_container:
     with st.form(key="prompt_input", clear_on_submit=True):
         user_input = st.text_area("You:", key="input", height=100)
         submit_button = st.form_submit_button(label="Send")
 
-    if submit_button and user_input:
-        output = generate_response(user_input)
-        st.session_state["past"].append(user_input)
-        st.session_state["generated"].append(output)
+if submit_button and user_input:
+    output = generate_response(user_input)
+    st.session_state["past"].append(user_input)
+    st.session_state["generated"].append(output)
 
 if st.session_state["generated"]:
     with response_container:

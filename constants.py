@@ -2,11 +2,15 @@ from pathlib import Path
 
 APP_NAME = "DataChad"
 MODEL = "gpt-3.5-turbo"
+EMBEDDINGS = "openai"
 PAGE_ICON = "🤖"
+
+PROJECT_URL = "https://github.com/gustavz/DataChad"
 
 K = 10
 FETCH_K = 20
 CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 0
 TEMPERATURE = 0.7
 MAX_TOKENS = 3357
 ENABLE_ADVANCED_OPTIONS = True
@@ -14,12 +18,10 @@ ENABLE_ADVANCED_OPTIONS = True
 DATA_PATH = Path.cwd() / "data"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
-REPO_URL = "https://github.com/gustavz/DataChad"
-
 AUTHENTICATION_HELP = f"""
 Your credentials are only stored in your session state.\n
 The keys are neither exposed nor made visible or stored permanently in any way.\n
-Feel free to check out [the code base]({REPO_URL}) to validate how things work.
+Feel free to check out [the code base]({PROJECT_URL}) to validate how things work.
 """
 
 USAGE_HELP = f"""
