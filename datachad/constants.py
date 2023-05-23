@@ -14,9 +14,10 @@ MAX_TOKENS = 3357
 MODEL_N_CTX = 1000
 
 ENABLE_ADVANCED_OPTIONS = True
-ENABLE_LOCAL_MODE = False
+ENABLE_LOCAL_MODE = True
 
-GPT4ALL_MODEL_PATH = "models/ggml-gpt4all-j-v1.3-groovy.bin"
+MODEL_PATH = Path.cwd() / "models"
+GPT4ALL_BINARY = "ggml-gpt4all-j-v1.3-groovy.bin"
 
 DATA_PATH = Path.cwd() / "data"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"

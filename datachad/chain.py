@@ -41,11 +41,10 @@ def update_chain() -> None:
     try:
         st.session_state["chain"] = get_chain()
         st.session_state["chat_history"] = []
-        msg = f"Data source '{st.session_state['data_source']}' is ready to go!"
-        logger.info(msg)
+        msg = f"Data source '{st.session_state['data_source']}' is ready to go with model '{st.session_state['model']}'!"
         st.info(msg, icon=PAGE_ICON)
     except Exception as e:
-        msg = f"Failed to build chain for data source '{st.session_state['data_source']}' with error: {e}"
+        msg = f"Failed to build chain for data source '{st.session_state['data_source']}' with model '{st.session_state['model']}': {e}"
         logger.error(msg)
         st.error(msg, icon=PAGE_ICON)
 
