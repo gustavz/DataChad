@@ -155,7 +155,7 @@ def advanced_options_form() -> None:
 
 # Sidebar with Authentication and Advanced Options
 with st.sidebar:
-    mode = st.selectbox("Mode", MODES.values(), key="mode")
+    mode = st.selectbox("Mode", MODES.all(), key="mode")
     if mode == MODES.LOCAL and not ENABLE_LOCAL_MODE:
         st.error(LOCAL_MODE_DISABLED_HELP, icon=PAGE_ICON)
         st.stop()

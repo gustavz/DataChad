@@ -13,13 +13,15 @@ TEMPERATURE = 0.7
 MAX_TOKENS = 3357
 MODEL_N_CTX = 1000
 
-ENABLE_LOCAL_MODE = False
 ENABLE_ADVANCED_OPTIONS = True
+ENABLE_LOCAL_MODE = False
 
+GPT4ALL_MODEL_PATH = "models/ggml-gpt4all-j-v1.3-groovy.bin"
 
 DATA_PATH = Path.cwd() / "data"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
+MODEL_HELP = "Learn more about which models are supported [here](https://github.com/gustavz/DataChad/blob/main/datachad/models.py)"
 
 LOCAL_MODE_DISABLED_HELP = """
 This is a demo hosted with limited resources. Local Mode is not enabled.\n
