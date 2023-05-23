@@ -21,11 +21,15 @@ GPT4ALL_MODEL_PATH = "models/ggml-gpt4all-j-v1.3-groovy.bin"
 DATA_PATH = Path.cwd() / "data"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
-MODEL_HELP = "Learn more about which models are supported [here](https://github.com/gustavz/DataChad/blob/main/datachad/models.py)"
+MODE_HELP = """
+Choose between `OpenAI` which uses the openai library to make API calls, or `Local` which runs all operations (Embedding, Vector Stor and LLM) locally.\n
+To enable `Local` mode (disabled for the demo) set `ENABLE_LOCAL_MODE` to `True` in `datachad/constants.py` before deploying the app.\n
+Furthermore you need to have the model binaries downloaded and stored inside `./models/`\n
+"""
 
 LOCAL_MODE_DISABLED_HELP = """
 This is a demo hosted with limited resources. Local Mode is not enabled.\n
-To use Local Mode deploy the app on your machine of choice with ENABLE_LOCAL_MODE set to True.
+To use Local Mode deploy the app on your machine of choice with `ENABLE_LOCAL_MODE` set to `True`.
 """
 
 AUTHENTICATION_HELP = f"""
@@ -36,7 +40,7 @@ Feel free to check out [the code base]({PROJECT_URL}) to validate how things wor
 
 USAGE_HELP = f"""
 These are the accumulated OpenAI API usage metrics.\n
-The app uses 'gpt-3.5-turbo' for chat and 'text-embedding-ada-002' for embeddings.\n
+The app uses `gpt-3.5-turbo` for chat and `text-embedding-ada-002` for embeddings.\n
 Learn more about OpenAI's pricing [here](https://openai.com/pricing#language-models)
 """
 

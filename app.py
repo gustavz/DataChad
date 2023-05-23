@@ -14,6 +14,7 @@ from datachad.constants import (
     FETCH_K,
     LOCAL_MODE_DISABLED_HELP,
     MAX_TOKENS,
+    MODE_HELP,
     MODEL_N_CTX,
     OPENAI_HELP,
     PAGE_ICON,
@@ -102,7 +103,11 @@ def advanced_options_form() -> None:
     if advanced_options:
         with st.form("advanced_options"):
             col1, col2 = st.columns(2)
-            col1.selectbox("model", MODELS.for_mode(st.session_state["mode"]))
+            col1.selectbox(
+                "model",
+                options=MODELS.for_mode(st.session_state["mode"]),
+                help=f"Learn more about which models are supported [here]({PROJECT_URL})",
+            )
             col2.number_input(
                 "temperature",
                 min_value=0.0,
@@ -155,7 +160,7 @@ def advanced_options_form() -> None:
 
 # Sidebar with Authentication and Advanced Options
 with st.sidebar:
-    mode = st.selectbox("Mode", MODES.all(), key="mode")
+    mode = st.selectbox("Mode", MODES.all(), key="mode", help=MODE_HELP)
     if mode == MODES.LOCAL and not ENABLE_LOCAL_MODE:
         st.error(LOCAL_MODE_DISABLED_HELP, icon=PAGE_ICON)
         st.stop()
