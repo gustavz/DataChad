@@ -1,33 +1,33 @@
 import streamlit as st
 from streamlit_chat import message
 
-from constants import (
+from datachad.chain import generate_response, update_chain
+from datachad.constants import (
     ACTIVELOOP_HELP,
     APP_NAME,
     AUTHENTICATION_HELP,
     CHUNK_OVERLAP,
     CHUNK_SIZE,
     DEFAULT_DATA_SOURCE,
-    EMBEDDINGS,
     ENABLE_ADVANCED_OPTIONS,
+    ENABLE_LOCAL_MODE,
     FETCH_K,
+    LOCAL_MODE_DISABLED_HELP,
     MAX_TOKENS,
-    MODEL,
+    MODEL_N_CTX,
     OPENAI_HELP,
     PAGE_ICON,
     PROJECT_URL,
     TEMPERATURE,
     USAGE_HELP,
-    MODEL_N_CTX,
     K,
 )
-from utils import (
+from datachad.models import MODELS, MODES
+from datachad.utils import (
     authenticate,
     delete_uploaded_file,
-    generate_response,
     logger,
     save_uploaded_file,
-    update_chain,
 )
 
 # Page options and header
@@ -52,8 +52,8 @@ SESSION_DEFAULTS = {
     "activeloop_org_name": None,
     "uploaded_file": None,
     "data_source": DEFAULT_DATA_SOURCE,
-    "model": MODEL,
-    "embeddings": EMBEDDINGS,
+    "mode": MODES.OPENAI,
+    "model": MODELS.GPT35TURBO,
     "k": K,
     "fetch_k": FETCH_K,
     "chunk_size": CHUNK_SIZE,
@@ -72,7 +72,7 @@ def authentication_form() -> None:
     st.title("Authentication", help=AUTHENTICATION_HELP)
     with st.form("authentication"):
         openai_api_key = st.text_input(
-            "OpenAI API Key",
+            f"{st.session_state['mode']} API Key",
             type="password",
             help=OPENAI_HELP,
             placeholder="This field is mandatory",
@@ -101,29 +101,34 @@ def advanced_options_form() -> None:
     )
     if advanced_options:
         with st.form("advanced_options"):
-            temperature = st.slider(
+            col1, col2 = st.columns(2)
+            col1.selectbox("model", MODELS.for_mode(st.session_state["mode"]))
+            col2.number_input(
                 "temperature",
                 min_value=0.0,
                 max_value=1.0,
                 value=TEMPERATURE,
                 help="Controls the randomness of the language model output",
+                key="temperature",
             )
-            col1, col2 = st.columns(2)
-            fetch_k = col1.number_input(
+
+            col1.number_input(
                 "k_fetch",
                 min_value=1,
                 max_value=1000,
                 value=FETCH_K,
                 help="The number of documents to pull from the vector database",
+                key="k_fetch",
             )
-            k = col2.number_input(
+            col2.number_input(
                 "k",
                 min_value=1,
                 max_value=100,
                 value=K,
                 help="The number of most similar documents to build the context from",
+                key="k",
             )
-            chunk_size = col1.number_input(
+            col1.number_input(
                 "chunk_size",
                 min_value=1,
                 max_value=100000,
@@ -133,35 +138,37 @@ def advanced_options_form() -> None:
                     "before being embedded.\n\nChanging this parameter makes re-embedding "
                     "and re-uploading the data to the database necessary "
                 ),
+                key="chunk_size",
             )
-            max_tokens = col2.number_input(
+            col2.number_input(
                 "max_tokens",
                 min_value=1,
-                max_value=4069,
+                max_value=30000,
                 value=MAX_TOKENS,
                 help="Limits the documents returned from database based on number of tokens",
+                key="max_tokens",
             )
             applied = st.form_submit_button("Apply")
             if applied:
-                st.session_state["k"] = k
-                st.session_state["fetch_k"] = fetch_k
-                st.session_state["chunk_size"] = chunk_size
-                st.session_state["temperature"] = temperature
-                st.session_state["max_tokens"] = max_tokens
                 update_chain()
 
 
 # Sidebar with Authentication and Advanced Options
 with st.sidebar:
-    authentication_form()
+    mode = st.selectbox("Mode", MODES.values(), key="mode")
+    if mode == MODES.LOCAL and not ENABLE_LOCAL_MODE:
+        st.error(LOCAL_MODE_DISABLED_HELP, icon=PAGE_ICON)
+        st.stop()
+    if mode != MODES.LOCAL:
+        authentication_form()
 
     st.info(f"Learn how it works [here]({PROJECT_URL})")
     # Only start App if authentication is OK
-    if not st.session_state["auth_ok"]:
+    if not (st.session_state["auth_ok"] or mode == MODES.LOCAL):
         st.stop()
 
     # Clear button to reset all chat communication
-    clear_button = st.button("Clear Conversation", key="clear")
+    clear_button = st.button("Clear Conversation")
 
     # Advanced Options
     if ENABLE_ADVANCED_OPTIONS:
@@ -214,6 +221,7 @@ with text_container:
         submit_button = st.form_submit_button(label="Send")
 
 if submit_button and user_input:
+    text_container.empty()
     output = generate_response(user_input)
     st.session_state["past"].append(user_input)
     st.session_state["generated"].append(output)

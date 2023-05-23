@@ -1,11 +1,9 @@
 from pathlib import Path
 
-APP_NAME = "DataChad"
-MODEL = "gpt-3.5-turbo"
-EMBEDDINGS = "openai"
 PAGE_ICON = "🤖"
-
+APP_NAME = "DataChad"
 PROJECT_URL = "https://github.com/gustavz/DataChad"
+
 
 K = 10
 FETCH_K = 20
@@ -13,15 +11,20 @@ CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 0
 TEMPERATURE = 0.7
 MAX_TOKENS = 3357
+MODEL_N_CTX = 1000
+
+ENABLE_LOCAL_MODE = False
 ENABLE_ADVANCED_OPTIONS = True
 
-MODEL_N_CTX = 1000
-LLAMACPP_MODEL_PATH = ""
-GPT4ALL_MODEL_PATH = ""
-ENABLE_LOCAL_MODELS = False
 
 DATA_PATH = Path.cwd() / "data"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
+
+
+LOCAL_MODE_DISABLED_HELP = """
+This is a demo hosted with limited resources. Local Mode is not enabled.\n
+To use Local Mode deploy the app on your machine of choice with ENABLE_LOCAL_MODE set to True.
+"""
 
 AUTHENTICATION_HELP = f"""
 Your credentials are only stored in your session state.\n
@@ -31,7 +34,7 @@ Feel free to check out [the code base]({PROJECT_URL}) to validate how things wor
 
 USAGE_HELP = f"""
 These are the accumulated OpenAI API usage metrics.\n
-The app uses '{MODEL}' for chat and 'text-embedding-ada-002' for embeddings.\n
+The app uses 'gpt-3.5-turbo' for chat and 'text-embedding-ada-002' for embeddings.\n
 Learn more about OpenAI's pricing [here](https://openai.com/pricing#language-models)
 """
 
