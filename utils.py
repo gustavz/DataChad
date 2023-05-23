@@ -37,8 +37,10 @@ from langchain.embeddings.openai import Embeddings, OpenAIEmbeddings
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import DeepLake, VectorStore
+from langchain.llms import GPT4All, LlamaCpp
+from langchain.embeddings import HuggingFaceEmbeddings
 
-from constants import APP_NAME, DATA_PATH, PAGE_ICON, PROJECT_URL
+from constants import APP_NAME, DATA_PATH, PAGE_ICON, PROJECT_URL, LLAMACPP_MODEL_PATH, GPT4ALL_MODEL_PATH
 
 # loads environment variables
 load_dotenv()
@@ -190,7 +192,7 @@ WEB_LOADER_MAPPING = {
 }
 
 
-def get_loader(file_path: str, mapping: dict, default_loader:BaseLoader) -> BaseLoader:
+def get_loader(file_path: str, mapping: dict, default_loader: BaseLoader) -> BaseLoader:
     # Choose loader from mapping, load default if no match found
     ext = "." + file_path.rsplit(".", 1)[-1]
     if ext in mapping:
@@ -238,7 +240,7 @@ def load_data_source() -> List[Document]:
         st.stop()
 
 
-def get_data_source_string() -> str:
+def get_dataset_name() -> str:
     # replace all non-word characters with dashes
     # to get a string that can be used to create a new dataset
     dashed_string = re.sub(r"\W+", "-", st.session_state["data_source"])
@@ -253,6 +255,21 @@ def get_model() -> BaseLanguageModel:
                 model_name=st.session_state["model"],
                 temperature=st.session_state["temperature"],
                 openai_api_key=st.session_state["openai_api_key"],
+            )
+        case "LlamaCpp":
+            model = LlamaCpp(
+                model_path=LLAMACPP_MODEL_PATH,
+                n_ctx=st.session_state["model_n_ctx"],
+                temperature=st.session_state["temperature"],
+                verbose=True,
+            )
+        case "GPT4All":
+            model = GPT4All(
+                model=GPT4ALL_MODEL_PATH,
+                n_ctx=st.session_state["model_n_ctx"],
+                backend="gptj",
+                temp=st.session_state["temperature"],
+                verbose=True,
             )
         # Add more models as needed
         case _default:
@@ -269,6 +286,8 @@ def get_embeddings() -> Embeddings:
             embeddings = OpenAIEmbeddings(
                 disallowed_special=(), openai_api_key=st.session_state["openai_api_key"]
             )
+        case "huggingface-Fall-MiniLM-L6-v2":
+            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         # Add more embeddings as needed
         case _default:
             msg = f"Embeddings {st.session_state['embeddings']} not supported!"
@@ -281,8 +300,8 @@ def get_embeddings() -> Embeddings:
 def get_vector_store() -> VectorStore:
     # either load existing vector store or upload a new one to the hub
     embeddings = get_embeddings()
-    data_source_name = get_data_source_string()
-    dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{data_source_name}-{st.session_state['chunk_size']}"
+    dataset_name = get_dataset_name()
+    dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{dataset_name}-{st.session_state['chunk_size']}"
     if deeplake.exists(dataset_path, token=st.session_state["activeloop_token"]):
         with st.spinner("Loading vector store..."):
             logger.info(f"Dataset '{dataset_path}' exists -> loading")

@@ -18,6 +18,7 @@ from constants import (
     PROJECT_URL,
     TEMPERATURE,
     USAGE_HELP,
+    MODEL_N_CTX,
     K,
 )
 from utils import (
@@ -45,12 +46,12 @@ SESSION_DEFAULTS = {
     "usage": {},
     "chat_history": [],
     "generated": [],
-    "data_source": DEFAULT_DATA_SOURCE,
-    "uploaded_file": None,
     "auth_ok": False,
     "openai_api_key": None,
     "activeloop_token": None,
     "activeloop_org_name": None,
+    "uploaded_file": None,
+    "data_source": DEFAULT_DATA_SOURCE,
     "model": MODEL,
     "embeddings": EMBEDDINGS,
     "k": K,
@@ -59,6 +60,7 @@ SESSION_DEFAULTS = {
     "chunk_overlap": CHUNK_OVERLAP,
     "temperature": TEMPERATURE,
     "max_tokens": MAX_TOKENS,
+    "model_n_ctx": MODEL_N_CTX,
 }
 # Initialise session state variables
 for k, v in SESSION_DEFAULTS.items():
