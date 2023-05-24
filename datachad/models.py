@@ -82,7 +82,7 @@ def get_model() -> BaseLanguageModel:
                     backend="gptj",
                     temp=st.session_state["temperature"],
                     verbose=True,
-                    callbacks=StreamingStdOutCallbackHandler(),
+                    callbacks=[StreamingStdOutCallbackHandler()],
                 )
             # Added models need to be cased here
             case _default:

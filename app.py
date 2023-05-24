@@ -107,6 +107,7 @@ def advanced_options_form() -> None:
                 "model",
                 options=MODELS.for_mode(st.session_state["mode"]),
                 help=f"Learn more about which models are supported [here]({PROJECT_URL})",
+                key="model",
             )
             col2.number_input(
                 "temperature",
@@ -158,10 +159,20 @@ def advanced_options_form() -> None:
                 update_chain()
 
 
+def update_model_on_mode_change():
+    # callback for mode selectbox
+    st.session_state["model"] = MODELS.for_mode(st.session_state["mode"])[0]
+
+
 # Sidebar with Authentication and Advanced Options
 with st.sidebar:
-    mode = st.selectbox("Mode", MODES.all(), key="mode", help=MODE_HELP)
-    st.session_state["model"] = MODELS.for_mode(mode)[0]
+    mode = st.selectbox(
+        "Mode",
+        MODES.all(),
+        key="mode",
+        help=MODE_HELP,
+        on_change=update_model_on_mode_change(),
+    )
     if mode == MODES.LOCAL and not ENABLE_LOCAL_MODE:
         st.error(LOCAL_MODE_DISABLED_HELP, icon=PAGE_ICON)
         st.stop()
