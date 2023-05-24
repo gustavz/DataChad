@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import streamlit as st
 from langchain.base_language import BaseLanguageModel
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.embeddings.openai import Embeddings, OpenAIEmbeddings
@@ -80,6 +81,7 @@ def get_model() -> BaseLanguageModel:
                     backend="gptj",
                     temp=st.session_state["temperature"],
                     verbose=True,
+                    callbacks=StreamingStdOutCallbackHandler(),
                 )
             # Added models need to be cased here
             case _default:
