@@ -1,4 +1,3 @@
-import os
 import re
 
 import deeplake
@@ -16,12 +15,14 @@ def get_dataset_path() -> str:
     # to get a string that can be used to create a new dataset
     dataset_name = re.sub(r"\W+", "-", st.session_state["data_source"])
     dataset_name = re.sub(r"--+", "- ", dataset_name).strip("-")
+    # we need to differntiate between differently chunked datasets
+    dataset_name += (
+        f"-{st.session_state['chunk_size']}-{st.session_state['chunk_overlap']}"
+    )
     if st.session_state["mode"] == MODES.LOCAL:
-        if not os.path.exists(DATA_PATH):
-            os.makedirs(DATA_PATH)
         dataset_path = str(DATA_PATH / dataset_name)
     else:
-        dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{dataset_name}-{st.session_state['chunk_size']}"
+        dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{dataset_name}"
     return dataset_path
 
 
