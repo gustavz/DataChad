@@ -31,7 +31,7 @@ def get_vector_store() -> VectorStore:
     embeddings = get_embeddings()
     dataset_path = get_dataset_path()
     if deeplake.exists(dataset_path, token=st.session_state["activeloop_token"]):
-        with st.spinner("Loading vector store..."):
+        with st.session_state["info_container"], st.spinner("Loading vector store..."):
             logger.info(f"Dataset '{dataset_path}' exists -> loading")
             vector_store = DeepLake(
                 dataset_path=dataset_path,
@@ -40,7 +40,9 @@ def get_vector_store() -> VectorStore:
                 token=st.session_state["activeloop_token"],
             )
     else:
-        with st.spinner("Reading, embedding and uploading data to hub..."):
+        with st.session_state["info_container"], st.spinner(
+            "Reading, embedding and uploading data to hub..."
+        ):
             logger.info(f"Dataset '{dataset_path}' does not exist -> uploading")
             docs = load_data_source()
             vector_store = DeepLake.from_documents(

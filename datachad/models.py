@@ -61,7 +61,7 @@ class MODELS(Enum):
 
 
 def get_model() -> BaseLanguageModel:
-    with st.spinner("Loading Model..."):
+    with st.session_state["info_container"], st.spinner("Loading Model..."):
         match st.session_state["model"].name:
             case MODELS.GPT35TURBO.name:
                 model = ChatOpenAI(

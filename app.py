@@ -52,6 +52,7 @@ SESSION_DEFAULTS = {
     "activeloop_token": None,
     "activeloop_org_name": None,
     "uploaded_file": None,
+    "info_container": None,
     "data_source": DEFAULT_DATA_SOURCE,
     "mode": MODES.OPENAI,
     "model": MODELS.GPT35TURBO,
@@ -67,6 +68,20 @@ SESSION_DEFAULTS = {
 for k, v in SESSION_DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+
+# Define all containers upfront to ensure app UI consistency
+# container to upload files
+upload_container = st.container()
+# container to enter any datasource string
+datasource_container = st.container()
+# container to display infos stored to session state
+# as it needs to be accessed from submodules
+st.session_state["info_container"] = st.container()
+# container for chat history
+response_container = st.container()
+# container for text box
+text_container = st.container()
 
 
 def authentication_form() -> None:
@@ -159,9 +174,18 @@ def advanced_options_form() -> None:
                 update_chain()
 
 
+def app_can_be_started():
+    # Only start App if authentication is OK or Local Mode
+    return st.session_state["auth_ok"] or st.session_state["mode"] == MODES.LOCAL
+
+
 def update_model_on_mode_change():
     # callback for mode selectbox
+    # the default model must be updated for the mode
     st.session_state["model"] = MODELS.for_mode(st.session_state["mode"])[0]
+    # Chain needs to be rebuild if app can be started
+    if "chain" in st.session_state and app_can_be_started():
+        update_chain()
 
 
 # Sidebar with Authentication and Advanced Options
@@ -171,7 +195,7 @@ with st.sidebar:
         MODES.all(),
         key="mode",
         help=MODE_HELP,
-        on_change=update_model_on_mode_change(),
+        on_change=update_model_on_mode_change,
     )
     if mode == MODES.LOCAL and not ENABLE_LOCAL_MODE:
         st.error(LOCAL_MODE_DISABLED_HELP, icon=PAGE_ICON)
@@ -180,8 +204,7 @@ with st.sidebar:
         authentication_form()
 
     st.info(f"Learn how it works [here]({PROJECT_URL})")
-    # Only start App if authentication is OK
-    if not (st.session_state["auth_ok"] or mode == MODES.LOCAL):
+    if not app_can_be_started():
         st.stop()
 
     # Clear button to reset all chat communication
@@ -191,22 +214,24 @@ with st.sidebar:
     if ENABLE_ADVANCED_OPTIONS:
         advanced_options_form()
 
+
 if clear_button:
-    # resets all chat history related caches
+    # clear all chat related caches
     st.session_state["past"] = []
     st.session_state["generated"] = []
     st.session_state["chat_history"] = []
 
 
 # file upload and data source inputs
-uploaded_file = st.file_uploader("Upload a file")
-data_source = st.text_input(
+uploaded_file = upload_container.file_uploader("Upload a file")
+data_source = datasource_container.text_input(
     "Enter any data source",
     placeholder="Any path or url pointing to a file or directory of files",
 )
 
 # the chain can only be initialized after authentication is OK
 if "chain" not in st.session_state:
+    # resets all chat history related caches
     update_chain()
 
 # generate new chain for new data source / uploaded file
@@ -224,11 +249,6 @@ if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
     update_chain()
     delete_uploaded_file()
 
-
-# container for chat history
-response_container = st.container()
-# container for text box
-text_container = st.container()
 
 # As streamlit reruns the whole script on each change
 # it is necessary to repopulate the chat containers
