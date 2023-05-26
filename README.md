@@ -13,7 +13,7 @@ This is an app that let's you ask questions about any data source by leveraging 
 7. Finally the chat history is cached locally to enable a [ChatGPT](https://chat.openai.com/) like Q&A conversation
 
 ## Good to know
-
+- The app only runs on `py>=3.10`!
 - As default context this git repository is taken so you can directly start asking question about its functionality without chosing an own data source.
 - To run locally or deploy somewhere, execute `cp .env.template .env` and set credentials in the newly created `.env` file. Other options are manually setting of system environment variables, or storing them into `.streamlit/secrets.toml` when hosted via streamlit.
 - If you have credentials set like explained above, you can just hit `submit` in the authentication without reentering your credentials in the app.
