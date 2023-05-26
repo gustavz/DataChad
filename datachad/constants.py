@@ -55,3 +55,11 @@ You can create an ActiveLoops account (including 500GB of free database storage)
 Once you are logged in, you find the API token [here](https://app.activeloop.ai/profile/gustavz/apitoken).\n
 The organisation name is your username, or you can create new organisations [here](https://app.activeloop.ai/organization/new/create)
 """
+
+UPLOAD_HELP = """
+You can upload a single or multiple files. With each upload, all files in the batch are embedded into a single vector store.\n
+**Important**: If you upload new files after you already have uploaded files, a new vector store that includes all previously uploaded files is created.
+This means for each combination of uploaded files, a new vector store is created.\n
+To treat your new upload independently, you need to remove the previous uploads by clicking the `X`, right next to the uploaded file name.\n
+**!!! All uploaded files are removed permanently from the app after the vector stores are created !!!**
+"""

@@ -1,6 +1,9 @@
 import logging
 import os
+import re
+import shutil
 import sys
+from typing import List
 
 import deeplake
 import openai
@@ -80,25 +83,63 @@ def authenticate(
     logger.info("Authentification successful!")
 
 
-def save_uploaded_file() -> str:
-    # streamlit uploaded files need to be stored locally
-    # before embedded and uploaded to the hub
-    uploaded_file = st.session_state["uploaded_file"]
-    if not os.path.exists(DATA_PATH):
-        os.makedirs(DATA_PATH)
-    file_path = str(DATA_PATH / uploaded_file.name)
-    uploaded_file.seek(0)
-    file_bytes = uploaded_file.read()
+def clean_string_for_storing(string):
+    # replace all non-word characters with dashes
+    # to get a string that can be used to create a new dataset
+    cleaned_string = re.sub(r"\W+", "-", string)
+    cleaned_string = re.sub(r"--+", "- ", cleaned_string).strip("-")
+    return cleaned_string
+
+
+def concatenate_file_names(strings: List[str], n_max: int = 30) -> str:
+    # Calculate N based on the length of the list
+    n = max(1, n_max // len(strings))
+    result = ""
+    # Add up the first N characters of each string
+    for string in sorted(strings):
+        result += f"-{string[:n]}"
+    return clean_string_for_storing(result)
+
+
+def get_data_source_path(uploaded_files):
+    if len(uploaded_files) > 1:
+        # we create a folder name by adding up parts of the file names
+        path = DATA_PATH / concatenate_file_names([f.name for f in uploaded_files])
+    else:
+        path = DATA_PATH / uploaded_files[0].name
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+
+def save_file(file, path):
+    file_path = str(path / file.name)
+    file.seek(0)
+    file_bytes = file.read()
     file = open(file_path, "wb")
     file.write(file_bytes)
     file.close()
     logger.info(f"Saved: {file_path}")
-    return file_path
 
 
-def delete_uploaded_file() -> None:
+def save_uploaded_files() -> str:
+    # streamlit uploaded files need to be stored locally
+    # before embedded and uploaded to the hub
+    uploaded_files = st.session_state["uploaded_files"]
+    data_source_path = get_data_source_path(uploaded_files)
+    logger.info(f"{data_source_path=}")
+    for file in uploaded_files:
+        save_file(file, data_source_path)
+    return str(data_source_path)
+
+
+def delete_uploaded_files() -> None:
     # cleanup locally stored files
-    file_path = DATA_PATH / st.session_state["uploaded_file"].name
-    if os.path.exists(DATA_PATH):
-        os.remove(file_path)
-        logger.info(f"Removed: {file_path}")
+    data_source_path = get_data_source_path(st.session_state["uploaded_files"])
+    if os.path.isdir(data_source_path):
+        shutil.rmtree(data_source_path)
+    elif os.path.isfile(data_source_path):
+        os.remove(data_source_path)
+    else:
+        return
+    logger.info(f"Removed: {data_source_path}")

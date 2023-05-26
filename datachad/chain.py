@@ -38,6 +38,7 @@ def get_chain() -> ConversationalRetrievalChain:
 def update_chain() -> None:
     # Build chain with parameters from session state and store it back
     # Also delete chat history to not confuse the bot with old context
+    st.session_state["info_container"].empty()
     try:
         st.session_state["chain"] = get_chain()
         st.session_state["chat_history"] = []

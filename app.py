@@ -20,15 +20,16 @@ from datachad.constants import (
     PAGE_ICON,
     PROJECT_URL,
     TEMPERATURE,
+    UPLOAD_HELP,
     USAGE_HELP,
     K,
 )
 from datachad.models import MODELS, MODES
 from datachad.utils import (
     authenticate,
-    delete_uploaded_file,
+    delete_uploaded_files,
     logger,
-    save_uploaded_file,
+    save_uploaded_files,
 )
 
 # Page options and header
@@ -51,7 +52,7 @@ SESSION_DEFAULTS = {
     "openai_api_key": None,
     "activeloop_token": None,
     "activeloop_org_name": None,
-    "uploaded_file": None,
+    "uploaded_files": None,
     "info_container": None,
     "data_source": DEFAULT_DATA_SOURCE,
     "mode": MODES.OPENAI,
@@ -223,7 +224,9 @@ if clear_button:
 
 
 # file upload and data source inputs
-uploaded_file = upload_container.file_uploader("Upload a file")
+uploaded_files = upload_container.file_uploader(
+    "Upload Files", accept_multiple_files=True, help=UPLOAD_HELP
+)
 data_source = datasource_container.text_input(
     "Enter any data source",
     placeholder="Any path or url pointing to a file or directory of files",
@@ -241,13 +244,13 @@ if data_source and data_source != st.session_state["data_source"]:
     st.session_state["data_source"] = data_source
     update_chain()
 
-if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
-    logger.info(f"Uploaded file: '{uploaded_file.name}'")
-    st.session_state["uploaded_file"] = uploaded_file
-    data_source = save_uploaded_file()
+if uploaded_files and uploaded_files != st.session_state["uploaded_files"]:
+    logger.info(f"Uploaded files: '{uploaded_files}'")
+    st.session_state["uploaded_files"] = uploaded_files
+    data_source = save_uploaded_files()
     st.session_state["data_source"] = data_source
     update_chain()
-    delete_uploaded_file()
+    delete_uploaded_files()
 
 
 # As streamlit reruns the whole script on each change

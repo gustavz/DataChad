@@ -7,14 +7,11 @@ from langchain.vectorstores import DeepLake, VectorStore
 from datachad.constants import DATA_PATH
 from datachad.loader import load_data_source
 from datachad.models import MODES, get_embeddings
-from datachad.utils import logger
+from datachad.utils import clean_string_for_storing, logger
 
 
 def get_dataset_path() -> str:
-    # replace all non-word characters with dashes
-    # to get a string that can be used to create a new dataset
-    dataset_name = re.sub(r"\W+", "-", st.session_state["data_source"])
-    dataset_name = re.sub(r"--+", "- ", dataset_name).strip("-")
+    dataset_name = clean_string_for_storing(st.session_state["data_source"])
     # we need to differntiate between differently chunked datasets
     dataset_name += (
         f"-{st.session_state['chunk_size']}-{st.session_state['chunk_overlap']}"
