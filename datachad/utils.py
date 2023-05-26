@@ -3,12 +3,14 @@ import os
 import re
 import shutil
 import sys
-from typing import List
+from pathlib import Path
+from typing import List, Tuple
 
 import deeplake
 import openai
 import streamlit as st
 from dotenv import load_dotenv
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from datachad.constants import APP_NAME, DATA_PATH, PAGE_ICON
 
@@ -101,18 +103,24 @@ def concatenate_file_names(strings: List[str], n_max: int = 30) -> str:
     return clean_string_for_storing(result)
 
 
-def get_data_source_path(uploaded_files):
+def get_data_source_and_save_path(
+    uploaded_files: List[UploadedFile],
+) -> Tuple[str, UploadedFile]:
+    # generate data source string and path to save files to
     if len(uploaded_files) > 1:
         # we create a folder name by adding up parts of the file names
         path = DATA_PATH / concatenate_file_names([f.name for f in uploaded_files])
+        data_source = path
     else:
-        path = DATA_PATH / uploaded_files[0].name
+        path = DATA_PATH
+        data_source = path / uploaded_files[0].name
     if not os.path.exists(path):
         os.makedirs(path)
-    return path
+    return str(data_source), path
 
 
-def save_file(file, path):
+def save_file(file: UploadedFile, path: Path):
+    # save streamlit UploadedFile to path
     file_path = str(path / file.name)
     file.seek(0)
     file_bytes = file.read()
@@ -126,20 +134,21 @@ def save_uploaded_files() -> str:
     # streamlit uploaded files need to be stored locally
     # before embedded and uploaded to the hub
     uploaded_files = st.session_state["uploaded_files"]
-    data_source_path = get_data_source_path(uploaded_files)
-    logger.info(f"{data_source_path=}")
+    data_source, save_path = get_data_source_and_save_path(uploaded_files)
     for file in uploaded_files:
-        save_file(file, data_source_path)
-    return str(data_source_path)
+        save_file(file, save_path)
+    return data_source
 
 
 def delete_uploaded_files() -> None:
     # cleanup locally stored files
-    data_source_path = get_data_source_path(st.session_state["uploaded_files"])
-    if os.path.isdir(data_source_path):
-        shutil.rmtree(data_source_path)
-    elif os.path.isfile(data_source_path):
-        os.remove(data_source_path)
+    # the correct path is stored to data_source
+    uploaded_files = st.session_state["uploaded_files"]
+    data_source, _ = get_data_source_and_save_path(uploaded_files)
+    if os.path.isdir(data_source):
+        shutil.rmtree(data_source)
+    elif os.path.isfile(data_source):
+        os.remove(data_source)
     else:
         return
-    logger.info(f"Removed: {data_source_path}")
+    logger.info(f"Removed: {data_source}")

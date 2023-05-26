@@ -5,7 +5,7 @@ import streamlit as st
 from langchain.vectorstores import DeepLake, VectorStore
 
 from datachad.constants import DATA_PATH
-from datachad.loader import load_data_source
+from datachad.loader import load_data_source, split_docs
 from datachad.models import MODES, get_embeddings
 from datachad.utils import clean_string_for_storing, logger
 
@@ -42,6 +42,7 @@ def get_vector_store() -> VectorStore:
         ):
             logger.info(f"Dataset '{dataset_path}' does not exist -> uploading")
             docs = load_data_source()
+            docs = split_docs(docs)
             vector_store = DeepLake.from_documents(
                 docs,
                 embeddings,
