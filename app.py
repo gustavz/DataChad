@@ -118,14 +118,14 @@ def advanced_options_form() -> None:
     )
     if advanced_options:
         with st.form("advanced_options"):
-            col1, col2 = st.columns(2)
-            col1.selectbox(
+            st.selectbox(
                 "model",
                 options=MODELS.for_mode(st.session_state["mode"]),
                 help=f"Learn more about which models are supported [here]({PROJECT_URL})",
                 key="model",
             )
-            col2.number_input(
+            col1, col2 = st.columns(2)
+            col1.number_input(
                 "temperature",
                 min_value=0.0,
                 max_value=1.0,
@@ -133,7 +133,14 @@ def advanced_options_form() -> None:
                 help="Controls the randomness of the language model output",
                 key="temperature",
             )
-
+            col2.number_input(
+                "max_tokens",
+                min_value=1,
+                max_value=30000,
+                value=MAX_TOKENS,
+                help="Limits the documents returned from database based on number of tokens",
+                key="max_tokens",
+            )
             col1.number_input(
                 "k_fetch",
                 min_value=1,
@@ -163,13 +170,14 @@ def advanced_options_form() -> None:
                 key="chunk_size",
             )
             col2.number_input(
-                "max_tokens",
-                min_value=1,
-                max_value=30000,
-                value=MAX_TOKENS,
-                help="Limits the documents returned from database based on number of tokens",
-                key="max_tokens",
+                "chunk_overlap",
+                min_value=0,
+                max_value=100000,
+                value=CHUNK_OVERLAP,
+                help="The size of overlap between splitted document chunks",
+                key="chunk_overlap",
             )
+
             applied = st.form_submit_button("Apply")
             if applied:
                 update_chain()
