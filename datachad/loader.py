@@ -3,10 +3,8 @@ import shutil
 from pathlib import Path
 from typing import List
 
-import streamlit as st
 from langchain.document_loaders import (
     CSVLoader,
-    DirectoryLoader,
     EverNoteLoader,
     GitLoader,
     NotebookLoader,
@@ -28,8 +26,9 @@ from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
-from datachad.constants import DATA_PATH, PAGE_ICON, PROJECT_URL
-from datachad.utils import logger
+from datachad.constants import DATA_PATH, PROJECT_URL
+from datachad.logging import logger
+from datachad.models import get_tokenizer
 
 
 class AutoGitLoader:
@@ -102,58 +101,58 @@ def load_document(
     return loader.load()
 
 
-def load_directory(path: str) -> List[Document]:
+def load_directory(path: str, silent_errors=True) -> List[Document]:
     # We don't load hidden files starting with "."
     all_files = list(Path(path).rglob("**/[!.]*"))
     results = []
     with tqdm(total=len(all_files), desc="Loading documents", ncols=80) as pbar:
         for file in all_files:
-            results.extend(load_document(str(file)))
+            try:
+                results.extend(load_document(str(file)))
+            except Exception as e:
+                if silent_errors:
+                    logger.error(f"failed to load {file}")
+                else:
+                    raise e
             pbar.update()
     return results
 
 
-def load_data_source() -> List[Document]:
+def load_data_source(data_source: str) -> List[Document]:
     # Ugly thing that decides how to load data
     # It aint much, but it's honest work
-    data_source = st.session_state["data_source"]
     is_web = data_source.startswith("http")
     is_dir = os.path.isdir(data_source)
     is_file = os.path.isfile(data_source)
     docs = None
     try:
         if is_dir:
-            try:
-                docs = load_directory(data_source)
-            except:
-                msg = "failed to load directory, falling back to DirectoryLoader"
-                logger.error(msg)
-                docs = DirectoryLoader(
-                    data_source, recursive=True, silent_errors=True
-                ).load()
+            docs = load_directory(data_source)
         elif is_file:
             docs = load_document(data_source)
         elif is_web:
             docs = load_document(data_source, WEB_LOADER_MAPPING, WebBaseLoader)
         return docs
     except Exception as e:
-        msg = (
-            e
-            if docs
-            else f"No Loader found for your data source. Consider contributing:  {PROJECT_URL}!"
-        )
-        error_msg = f"Failed to load '{st.session_state['data_source']}':\n\n{msg}"
-        st.error(error_msg, icon=PAGE_ICON)
+        error_msg = f"Failed to load your data source '{data_source}'. Consider contributing: {PROJECT_URL}"
         logger.error(error_msg)
-        st.stop()
+        e.args += (error_msg,)
+        raise e
 
 
-def split_docs(docs):
-    # Chunk size is a major trade-off parameter to control result accuracy over computaion
+def split_docs(docs: List[Document], options: dict) -> List[Document]:
+    tokenizer = get_tokenizer(options)
+
+    def length_function(text: str) -> int:
+        # count chunks like the embeddings model tokenizer does
+        return len(tokenizer.encode(text))
+
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=st.session_state["chunk_size"],
-        chunk_overlap=st.session_state["chunk_overlap"],
+        chunk_size=options["chunk_size"],
+        chunk_overlap=options["chunk_overlap"],
+        length_function=length_function,
     )
+
     splitted_docs = text_splitter.split_documents(docs)
     logger.info(f"Loaded: {len(splitted_docs)} document chucks")
     return splitted_docs

@@ -1,52 +1,45 @@
-import re
-
 import deeplake
-import streamlit as st
 from langchain.vectorstores import DeepLake, VectorStore
 
 from datachad.constants import DATA_PATH
+from datachad.io import clean_string_for_storing
 from datachad.loader import load_data_source, split_docs
+from datachad.logging import logger
 from datachad.models import MODES, get_embeddings
-from datachad.utils import clean_string_for_storing, logger
 
 
-def get_dataset_path() -> str:
-    dataset_name = clean_string_for_storing(st.session_state["data_source"])
+def get_dataset_path(data_source: str, options: dict, credentials: dict) -> str:
+    dataset_name = clean_string_for_storing(data_source)
     # we need to differntiate between differently chunked datasets
-    dataset_name += (
-        f"-{st.session_state['chunk_size']}-{st.session_state['chunk_overlap']}"
-    )
-    if st.session_state["mode"] == MODES.LOCAL:
+    dataset_name += f"-{options['chunk_size']}-{options['chunk_overlap']}-{options['model'].embedding}"
+    if options["mode"] == MODES.LOCAL:
         dataset_path = str(DATA_PATH / dataset_name)
     else:
-        dataset_path = f"hub://{st.session_state['activeloop_org_name']}/{dataset_name}"
+        dataset_path = f"hub://{credentials['activeloop_org_name']}/{dataset_name}"
     return dataset_path
 
 
-def get_vector_store() -> VectorStore:
+def get_vector_store(data_source: str, options: dict, credentials: dict) -> VectorStore:
     # either load existing vector store or upload a new one to the hub
-    embeddings = get_embeddings()
-    dataset_path = get_dataset_path()
-    if deeplake.exists(dataset_path, token=st.session_state["activeloop_token"]):
-        with st.session_state["info_container"], st.spinner("Loading vector store..."):
-            logger.info(f"Dataset '{dataset_path}' exists -> loading")
-            vector_store = DeepLake(
-                dataset_path=dataset_path,
-                read_only=True,
-                embedding_function=embeddings,
-                token=st.session_state["activeloop_token"],
-            )
+    embeddings = get_embeddings(options, credentials)
+    dataset_path = get_dataset_path(data_source, options, credentials)
+    if deeplake.exists(dataset_path, token=credentials["activeloop_token"]):
+        logger.info(f"Dataset '{dataset_path}' exists -> loading")
+        vector_store = DeepLake(
+            dataset_path=dataset_path,
+            read_only=True,
+            embedding_function=embeddings,
+            token=credentials["activeloop_token"],
+        )
     else:
-        with st.session_state["info_container"], st.spinner(
-            "Reading, embedding and uploading data to hub..."
-        ):
-            logger.info(f"Dataset '{dataset_path}' does not exist -> uploading")
-            docs = load_data_source()
-            docs = split_docs(docs)
-            vector_store = DeepLake.from_documents(
-                docs,
-                embeddings,
-                dataset_path=dataset_path,
-                token=st.session_state["activeloop_token"],
-            )
+        logger.info(f"Dataset '{dataset_path}' does not exist -> uploading")
+        docs = load_data_source(data_source)
+        docs = split_docs(docs, options)
+        vector_store = DeepLake.from_documents(
+            docs,
+            embeddings,
+            dataset_path=dataset_path,
+            token=credentials["activeloop_token"],
+        )
+    logger.info(f"Vector Store {dataset_path} loaded!")
     return vector_store

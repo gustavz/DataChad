@@ -33,5 +33,6 @@ If you like to contribute, feel free to grab any task
 - [x] Add option to choose model and embeddings
 - [x] Enable fully local / private mode
 - [x] Add option to upload multiple files to a single dataset
+- [x] Decouple datachad modules from streamlit
+- [ ] Support streaming responses
 - [ ] Add Image caption and Audio transcription support
-- [ ] Decouple datachad modules from streamlit

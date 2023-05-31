@@ -2,15 +2,17 @@ from dataclasses import dataclass
 from typing import Any, List
 
 import streamlit as st
+import tiktoken
 from langchain.base_language import BaseLanguageModel
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.embeddings.openai import Embeddings, OpenAIEmbeddings
 from langchain.llms import GPT4All
+from transformers import AutoTokenizer
 
 from datachad.constants import GPT4ALL_BINARY, MODEL_PATH
-from datachad.utils import logger
+from datachad.logging import logger
 
 
 class Enum:
@@ -38,14 +40,16 @@ class MODES(Enum):
 
 class EMBEDDINGS(Enum):
     # Add more embeddings as needed
-    OPENAI = "openai"
-    HUGGINGFACE = "all-MiniLM-L6-v2"
+    OPENAI = "text-embedding-ada-002"
+    HUGGINGFACE = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 class MODELS(Enum):
     # Add more models as needed
     GPT35TURBO = Model(
-        name="gpt-3.5-turbo", mode=MODES.OPENAI, embedding=EMBEDDINGS.OPENAI
+        name="gpt-3.5-turbo",
+        mode=MODES.OPENAI,
+        embedding=EMBEDDINGS.OPENAI,
     )
     GPT4 = Model(name="gpt-4", mode=MODES.OPENAI, embedding=EMBEDDINGS.OPENAI)
     GPT4ALL = Model(
@@ -60,44 +64,39 @@ class MODELS(Enum):
         return [m for m in cls.all() if isinstance(m, Model) and m.mode == mode]
 
 
-def get_model() -> BaseLanguageModel:
-    with st.session_state["info_container"], st.spinner("Loading Model..."):
-        match st.session_state["model"].name:
-            case MODELS.GPT35TURBO.name:
-                model = ChatOpenAI(
-                    model_name=st.session_state["model"].name,
-                    temperature=st.session_state["temperature"],
-                    openai_api_key=st.session_state["openai_api_key"],
-                )
-            case MODELS.GPT4.name:
-                model = ChatOpenAI(
-                    model_name=st.session_state["model"].name,
-                    temperature=st.session_state["temperature"],
-                    openai_api_key=st.session_state["openai_api_key"],
-                )
-            case MODELS.GPT4ALL.name:
-                model = GPT4All(
-                    model=st.session_state["model"].path,
-                    n_ctx=st.session_state["model_n_ctx"],
-                    backend="gptj",
-                    temp=st.session_state["temperature"],
-                    verbose=True,
-                    callbacks=[StreamingStdOutCallbackHandler()],
-                )
-            # Added models need to be cased here
-            case _default:
-                msg = f"Model {st.session_state['model']} not supported!"
-                logger.error(msg)
-                st.error(msg)
-                exit
+def get_model(options: dict, credentials: dict) -> BaseLanguageModel:
+    match options["model"].name:
+        case MODELS.GPT35TURBO.name | MODELS.GPT4.name:
+            model = ChatOpenAI(
+                model_name=options["model"].name,
+                temperature=options["temperature"],
+                openai_api_key=credentials["openai_api_key"],
+            )
+        case MODELS.GPT4ALL.name:
+            model = GPT4All(
+                model=options["model"].path,
+                n_ctx=options["model_n_ctx"],
+                backend="gptj",
+                temp=options["temperature"],
+                verbose=True,
+                callbacks=[StreamingStdOutCallbackHandler()],
+            )
+        # Added models need to be cased here
+        case _default:
+            msg = f"Model {options['model'].name} not supported!"
+            logger.error(msg)
+            st.error(msg)
+            exit
     return model
 
 
-def get_embeddings() -> Embeddings:
-    match st.session_state["model"].embedding:
+def get_embeddings(options: dict, credentials: dict) -> Embeddings:
+    match options["model"].embedding:
         case EMBEDDINGS.OPENAI:
             embeddings = OpenAIEmbeddings(
-                disallowed_special=(), openai_api_key=st.session_state["openai_api_key"]
+                model=EMBEDDINGS.OPENAI,
+                disallowed_special=(),
+                openai_api_key=credentials["openai_api_key"],
             )
         case EMBEDDINGS.HUGGINGFACE:
             embeddings = HuggingFaceEmbeddings(
@@ -105,8 +104,23 @@ def get_embeddings() -> Embeddings:
             )
         # Added embeddings need to be cased here
         case _default:
-            msg = f"Embeddings {st.session_state['embeddings']} not supported!"
+            msg = f"Embeddings {options['model'].embedding} not supported!"
             logger.error(msg)
             st.error(msg)
             exit
     return embeddings
+
+
+def get_tokenizer(options: dict) -> Embeddings:
+    match options["model"].embedding:
+        case EMBEDDINGS.OPENAI:
+            tokenizer = tiktoken.encoding_for_model(EMBEDDINGS.OPENAI)
+        case EMBEDDINGS.HUGGINGFACE:
+            tokenizer = AutoTokenizer.from_pretrained(EMBEDDINGS.HUGGINGFACE)
+        # Added tokenizers need to be cased here
+        case _default:
+            msg = f"Tokenizer {options['model'].embedding} not supported!"
+            logger.error(msg)
+            st.error(msg)
+            exit
+    return tokenizer
