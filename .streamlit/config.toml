@@ -1,0 +1,2 @@
+[server]
+fileWatcherType = "poll"
