@@ -1,4 +1,4 @@
-streamlit==1.22.0
+streamlit==1.23.1
 streamlit-chat==0.0.2.2
 deeplake==3.5.2
 openai==0.27.6
