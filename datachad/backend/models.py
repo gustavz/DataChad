@@ -11,8 +11,8 @@ from langchain.embeddings.openai import Embeddings, OpenAIEmbeddings
 from langchain.llms import GPT4All
 from transformers import AutoTokenizer
 
-from datachad.constants import GPT4ALL_BINARY, MODEL_PATH
-from datachad.logging import logger
+from datachad.backend.constants import GPT4ALL_BINARY, MODEL_PATH
+from datachad.backend.logging import logger
 
 
 class Enum:

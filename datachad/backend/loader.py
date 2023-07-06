@@ -26,9 +26,9 @@ from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
-from datachad.constants import DATA_PATH, PROJECT_URL
-from datachad.logging import logger
-from datachad.models import get_tokenizer
+from datachad.backend.constants import DATA_PATH
+from datachad.backend.logging import logger
+from datachad.backend.models import get_tokenizer
 
 
 class AutoGitLoader:
@@ -42,7 +42,7 @@ class AutoGitLoader:
         if not os.path.exists(DATA_PATH):
             os.makedirs(DATA_PATH)
         repo_name = self.data_source.split("/")[-1].split(".")[0]
-        repo_path = str(DATA_PATH / repo_name)
+        repo_path = str((DATA_PATH / repo_name).absolute())
         clone_url = self.data_source
         if os.path.exists(repo_path):
             clone_url = None
@@ -59,7 +59,9 @@ class AutoGitLoader:
         try:
             return docs
         except:
-            raise RuntimeError("Make sure to use HTTPS GitHub repo links")
+            raise RuntimeError(
+                "Error loading git. Make sure to use HTTPS GitHub repo links."
+            )
 
 
 FILE_LOADER_MAPPING = {
@@ -134,7 +136,7 @@ def load_data_source(data_source: str) -> List[Document]:
             docs = load_document(data_source, WEB_LOADER_MAPPING, WebBaseLoader)
         return docs
     except Exception as e:
-        error_msg = f"Failed to load your data source '{data_source}'. Consider contributing: {PROJECT_URL}"
+        error_msg = f"Failed to load your data source '{data_source}'."
         logger.error(error_msg)
         e.args += (error_msg,)
         raise e
@@ -147,10 +149,12 @@ def split_docs(docs: List[Document], options: dict) -> List[Document]:
         # count chunks like the embeddings model tokenizer does
         return len(tokenizer.encode(text))
 
+    chunk_overlap = int(options["chunk_size"] * options["chunk_overlap_pct"] / 100)
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=options["chunk_size"],
-        chunk_overlap=options["chunk_overlap"],
+        chunk_overlap=chunk_overlap,
         length_function=length_function,
+        separators=["\n\n", "\n", " ", ""],
     )
 
     splitted_docs = text_splitter.split_documents(docs)

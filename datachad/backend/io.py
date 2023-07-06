@@ -1,20 +1,12 @@
 import io
 import os
-import re
 import shutil
 from pathlib import Path
 from typing import List, Tuple
 
-from datachad.constants import DATA_PATH
-from datachad.logging import logger
-
-
-def clean_string_for_storing(string: str) -> str:
-    # replace all non-word characters with dashes
-    # to get a string that can be used to create a new dataset
-    cleaned_string = re.sub(r"\W+", "-", string)
-    cleaned_string = re.sub(r"--+", "- ", cleaned_string).strip("-")
-    return cleaned_string
+from datachad.backend.constants import DATA_PATH
+from datachad.backend.logging import logger
+from datachad.backend.utils import clean_string_for_storing
 
 
 def concatenate_file_names(strings: List[str], n_max: int = 30) -> str:

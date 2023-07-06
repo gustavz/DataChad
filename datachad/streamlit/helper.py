@@ -6,17 +6,24 @@ import streamlit as st
 from dotenv import load_dotenv
 from langchain.callbacks import OpenAICallbackHandler, get_openai_callback
 
-from datachad.chain import get_chain
-from datachad.constants import (
+from datachad.backend.chain import get_qa_chain
+from datachad.backend.deeplake import (
+    get_data_source_from_deeplake_dataset_path,
+    get_deeplake_vector_store_paths_for_user,
+)
+from datachad.backend.io import delete_files, save_files
+from datachad.backend.logging import logger
+from datachad.backend.models import MODELS, MODES
+from datachad.streamlit.constants import (
     ACTIVELOOP_HELP,
     AUTHENTICATION_HELP,
-    CHUNK_OVERLAP,
+    CHUNK_OVERLAP_PCT,
     CHUNK_SIZE,
     DEFAULT_DATA_SOURCE,
     DISTANCE_METRIC,
     ENABLE_ADVANCED_OPTIONS,
     ENABLE_LOCAL_MODE,
-    FETCH_K,
+    K_FETCH_K_RATIO,
     LOCAL_MODE_DISABLED_HELP,
     MAX_TOKENS,
     MAXIMAL_MARGINAL_RELEVANCE,
@@ -25,12 +32,9 @@ from datachad.constants import (
     OPENAI_HELP,
     PAGE_ICON,
     PROJECT_URL,
+    STORE_DOCS_EXTRA,
     TEMPERATURE,
-    K,
 )
-from datachad.io import delete_files, save_files
-from datachad.logging import logger
-from datachad.models import MODELS, MODES
 
 # loads environment variables
 load_dotenv()
@@ -47,21 +51,23 @@ def initialize_session_state():
         "chain": None,
         "openai_api_key": None,
         "activeloop_token": None,
-        "activeloop_org_name": None,
+        "activeloop_id": None,
         "uploaded_files": None,
         "info_container": None,
         "data_source": DEFAULT_DATA_SOURCE,
         "mode": MODES.OPENAI,
         "model": MODELS.GPT35TURBO,
-        "k": K,
-        "fetch_k": FETCH_K,
+        "k_fetch_k_ratio": K_FETCH_K_RATIO,
         "chunk_size": CHUNK_SIZE,
-        "chunk_overlap": CHUNK_OVERLAP,
+        "chunk_overlap_pct": CHUNK_OVERLAP_PCT,
         "temperature": TEMPERATURE,
         "max_tokens": MAX_TOKENS,
         "model_n_ctx": MODEL_N_CTX,
         "distance_metric": DISTANCE_METRIC,
         "maximal_marginal_relevance": MAXIMAL_MARGINAL_RELEVANCE,
+        "store_docs_extra": STORE_DOCS_EXTRA,
+        "vector_store": None,
+        "existing_vector_stores": [],
     }
 
     for k, v in SESSION_DEFAULTS.items():
@@ -85,7 +91,7 @@ def authentication_form() -> None:
             help=ACTIVELOOP_HELP,
             placeholder="Optional, using ours if empty",
         )
-        activeloop_org_name = st.text_input(
+        activeloop_id = st.text_input(
             "ActiveLoop Organisation Name",
             type="password",
             help=ACTIVELOOP_HELP,
@@ -93,7 +99,7 @@ def authentication_form() -> None:
         )
         submitted = st.form_submit_button("Submit")
         if submitted:
-            authenticate(openai_api_key, activeloop_token, activeloop_org_name)
+            authenticate(openai_api_key, activeloop_token, activeloop_id)
 
 
 def advanced_options_form() -> None:
@@ -123,24 +129,11 @@ def advanced_options_form() -> None:
                 min_value=1,
                 max_value=30000,
                 value=MAX_TOKENS,
-                help="Limits the documents returned from database based on number of tokens",
+                help=(
+                    "Limits the documents returned from "
+                    "database based on number of tokens"
+                ),
                 key="max_tokens",
-            )
-            col1.number_input(
-                "fetch_k",
-                min_value=1,
-                max_value=1000,
-                value=FETCH_K,
-                help="The number of documents to pull from the vector database",
-                key="fetch_k",
-            )
-            col2.number_input(
-                "k",
-                min_value=1,
-                max_value=100,
-                value=K,
-                help="The number of most similar documents to build the context from",
-                key="k",
             )
             col1.number_input(
                 "chunk_size",
@@ -157,10 +150,10 @@ def advanced_options_form() -> None:
             col2.number_input(
                 "chunk_overlap",
                 min_value=0,
-                max_value=100000,
-                value=CHUNK_OVERLAP,
-                help="The size of overlap between splitted document chunks",
-                key="chunk_overlap",
+                max_value=50,
+                value=CHUNK_OVERLAP_PCT,
+                help="The percentage of overlap between splitted document chunks",
+                key="chunk_overlap_pct",
             )
 
             applied = st.form_submit_button("Apply")
@@ -208,7 +201,7 @@ def authentication_and_options_side_bar():
 
 
 def authenticate(
-    openai_api_key: str, activeloop_token: str, activeloop_org_name: str
+    openai_api_key: str, activeloop_token: str, activeloop_id: str
 ) -> None:
     # Validate all credentials are set and correct
     # Check for env variables to enable local dev and deployments with shared credentials
@@ -222,12 +215,12 @@ def authenticate(
         or os.environ.get("ACTIVELOOP_TOKEN")
         or st.secrets.get("ACTIVELOOP_TOKEN")
     )
-    activeloop_org_name = (
-        activeloop_org_name
-        or os.environ.get("ACTIVELOOP_ORG_NAME")
-        or st.secrets.get("ACTIVELOOP_ORG_NAME")
+    activeloop_id = (
+        activeloop_id
+        or os.environ.get("ACTIVELOOP_ID")
+        or st.secrets.get("ACTIVELOOP_ID")
     )
-    if not (openai_api_key and activeloop_token and activeloop_org_name):
+    if not (openai_api_key and activeloop_token and activeloop_id):
         st.session_state["auth_ok"] = False
         st.error("Credentials neither set nor stored", icon=PAGE_ICON)
         return
@@ -237,7 +230,7 @@ def authenticate(
             openai.api_key = openai_api_key
             openai.Model.list()
             deeplake.exists(
-                f"hub://{activeloop_org_name}/DataChad-Authentication-Check",
+                f"hub://{activeloop_id}/DataChad-Authentication-Check",
                 token=activeloop_token,
             )
     except Exception as e:
@@ -249,7 +242,7 @@ def authenticate(
     st.session_state["auth_ok"] = True
     st.session_state["openai_api_key"] = openai_api_key
     st.session_state["activeloop_token"] = activeloop_token
-    st.session_state["activeloop_org_name"] = activeloop_org_name
+    st.session_state["activeloop_id"] = activeloop_id
     logger.info("Authentification successful!")
 
 
@@ -258,6 +251,7 @@ def update_chain() -> None:
     # Also delete chat history to not confuse the bot with old context
     try:
         with st.session_state["info_container"], st.spinner("Building Chain..."):
+            vector_store_path = None
             data_source = st.session_state["data_source"]
             if st.session_state["uploaded_files"] == st.session_state["data_source"]:
                 # Save files uploaded by streamlit to disk and set their path as data source.
@@ -265,38 +259,52 @@ def update_chain() -> None:
                 # as we need to delete the files after each chain build to make sure to not pollute the app
                 # and to ensure data privacy by not storing user data
                 data_source = save_files(st.session_state["uploaded_files"])
-            st.session_state["chain"] = get_chain(
+            if st.session_state["vector_store"] == st.session_state["data_source"]:
+                # Load an existing vector store if it has been choosen
+                vector_store_path = st.session_state["vector_store"]
+                data_source = get_data_source_from_deeplake_dataset_path(
+                    vector_store_path
+                )
+            options = {
+                "mode": st.session_state["mode"],
+                "model": st.session_state["model"],
+                "k_fetch_k_ratio": st.session_state["k_fetch_k_ratio"],
+                "chunk_size": st.session_state["chunk_size"],
+                "chunk_overlap_pct": st.session_state["chunk_overlap_pct"],
+                "temperature": st.session_state["temperature"],
+                "max_tokens": st.session_state["max_tokens"],
+                "model_n_ctx": st.session_state["model_n_ctx"],
+                "distance_metric": st.session_state["distance_metric"],
+                "maximal_marginal_relevance": st.session_state[
+                    "maximal_marginal_relevance"
+                ],
+                "store_docs_extra": st.session_state["store_docs_extra"],
+            }
+            credentials = {
+                "openai_api_key": st.session_state["openai_api_key"],
+                "activeloop_token": st.session_state["activeloop_token"],
+                "activeloop_id": st.session_state["activeloop_id"],
+            }
+            st.session_state["chain"] = get_qa_chain(
                 data_source=data_source,
-                options={
-                    "mode": st.session_state["mode"],
-                    "model": st.session_state["model"],
-                    "k": st.session_state["k"],
-                    "fetch_k": st.session_state["fetch_k"],
-                    "chunk_size": st.session_state["chunk_size"],
-                    "chunk_overlap": st.session_state["chunk_overlap"],
-                    "temperature": st.session_state["temperature"],
-                    "max_tokens": st.session_state["max_tokens"],
-                    "model_n_ctx": st.session_state["model_n_ctx"],
-                    "distance_metric": st.session_state["distance_metric"],
-                    "maximal_marginal_relevance": st.session_state[
-                        "maximal_marginal_relevance"
-                    ],
-                },
-                credentials={
-                    "openai_api_key": st.session_state["openai_api_key"],
-                    "activeloop_token": st.session_state["activeloop_token"],
-                    "activeloop_org_name": st.session_state["activeloop_org_name"],
-                },
+                vector_store_path=vector_store_path,
+                options=options,
+                credentials=credentials,
             )
             if st.session_state["uploaded_files"] == st.session_state["data_source"]:
                 # remove uploaded files from disk
                 delete_files(st.session_state["uploaded_files"])
+            # update list of existing vector stores
+            st.session_state["existing_vector_stores"] = get_existing_vector_stores(
+                options, credentials
+            )
             st.session_state["chat_history"] = []
-            msg = f"Data source **{st.session_state['data_source']}** is ready to go with model **{st.session_state['model']}**!"
-            logger.info(msg)
-            st.session_state["info_container"].info(msg, icon=PAGE_ICON)
+        print("data_source", data_source, type(data_source))
+        msg = f"Data source **{data_source}** is ready to go with model **{st.session_state['model']}**!"
+        logger.info(msg)
+        st.session_state["info_container"].info(msg, icon=PAGE_ICON)
     except Exception as e:
-        msg = f"Failed to build chain for data source **{st.session_state['data_source']}** with model **{st.session_state['model']}**: {e}"
+        msg = f"Failed to build chain for data source **{data_source}** with model **{st.session_state['model']}**: {e}"
         logger.error(msg)
         st.session_state["info_container"].error(msg, icon=PAGE_ICON)
 
@@ -326,3 +334,13 @@ def generate_response(prompt: str) -> str:
     logger.info(f"Response: '{response}'")
     st.session_state["chat_history"].append((prompt, response["answer"]))
     return response["answer"]
+
+
+def get_existing_vector_stores(options: dict, credentials: dict) -> list[str]:
+    return [None] + get_deeplake_vector_store_paths_for_user(options, credentials)
+
+
+def format_vector_stores(option: str) -> str:
+    if option is not None:
+        return get_data_source_from_deeplake_dataset_path(option)
+    return option

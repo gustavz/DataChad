@@ -1,9 +1,7 @@
 import logging
 import sys
 
-from datachad.constants import APP_NAME
-
-logger = logging.getLogger(APP_NAME)
+logger = logging.getLogger(__name__)
 
 
 def configure_logger(debug: int = 0) -> None:
@@ -14,7 +12,7 @@ def configure_logger(debug: int = 0) -> None:
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setLevel(log_level)
 
-    formatter = logging.Formatter("%(message)s")
+    formatter = logging.Formatter("%(name)s :: %(levelname)s :: %(message)s")
 
     stream_handler.setFormatter(formatter)
 

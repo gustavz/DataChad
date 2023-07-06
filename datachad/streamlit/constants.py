@@ -1,27 +1,20 @@
-from pathlib import Path
-
 PAGE_ICON = "🤖"
 APP_NAME = "DataChad"
 PROJECT_URL = "https://github.com/gustavz/DataChad"
+DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
-K = 6
-FETCH_K = 30
 CHUNK_SIZE = 512
-CHUNK_OVERLAP = 128
-TEMPERATURE = 0.7
-MAX_TOKENS = 3357
+CHUNK_OVERLAP_PCT = 25
+TEMPERATURE = 0.0
+MAX_TOKENS = 3584
 MODEL_N_CTX = 1000
+MAXIMAL_MARGINAL_RELEVANCE = False
 DISTANCE_METRIC = "cos"
-MAXIMAL_MARGINAL_RELEVANCE = True
+K_FETCH_K_RATIO = 3
 
 ENABLE_ADVANCED_OPTIONS = True
 ENABLE_LOCAL_MODE = True
-
-MODEL_PATH = Path.cwd() / "models"
-GPT4ALL_BINARY = "ggml-gpt4all-j-v1.3-groovy.bin"
-
-DATA_PATH = Path.cwd() / "data"
-DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
+STORE_DOCS_EXTRA = False
 
 MODE_HELP = """
 Choose between `OpenAI` which uses the openai library to make API calls, or `Local` which runs all operations (Embedding, Vector Stor and LLM) locally.\n

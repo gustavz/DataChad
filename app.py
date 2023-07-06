@@ -1,9 +1,10 @@
 import streamlit as st
 from streamlit_chat import message
 
-from datachad.constants import APP_NAME, PAGE_ICON, UPLOAD_HELP, USAGE_HELP
-from datachad.helper import (
+from datachad.streamlit.constants import APP_NAME, PAGE_ICON, UPLOAD_HELP, USAGE_HELP
+from datachad.streamlit.helper import (
     authentication_and_options_side_bar,
+    format_vector_stores,
     generate_response,
     initialize_session_state,
     logger,
@@ -16,7 +17,10 @@ initialize_session_state()
 # Page options and header
 st.set_option("client.showErrorDetails", True)
 st.set_page_config(
-    page_title=APP_NAME, page_icon=PAGE_ICON, initial_sidebar_state="expanded"
+    page_title=APP_NAME,
+    page_icon=PAGE_ICON,
+    initial_sidebar_state="expanded",
+    layout="centered",
 )
 st.markdown(
     f"<h1 style='text-align: center;'>{APP_NAME} {PAGE_ICON} <br> I know all about your data!</h1>",
@@ -24,34 +28,28 @@ st.markdown(
 )
 
 # Define all containers upfront to ensure app UI consistency
-# container to upload files
-upload_container = st.container()
-# container to enter any datasource string
-datasource_container = st.container()
+# container for all data source widgets:
+# load existing vector stores, upload files, or enter any datasource string
+data_source_container = st.container()
 # container to display infos stored to session state
 # as it needs to be accessed from submodules
-st.session_state["info_container"] = st.container()
+st.session_state["info_container"] = st.empty()
 # container for chat history
-response_container = st.container()
-# container for text box
-text_container = st.container()
+chat_history_container = st.container()
+# container for chat text box
+chat_input_container = st.empty()
 
 # sidebar widget with authentication and options
 authentication_and_options_side_bar()
 
 # file upload and data source input widgets
-uploaded_files = upload_container.file_uploader(
+uploaded_files = data_source_container.file_uploader(
     "Upload Files", accept_multiple_files=True, help=UPLOAD_HELP
 )
-data_source = datasource_container.text_input(
-    "Enter any data source",
+data_source = data_source_container.text_input(
+    "Enter any Data Source",
     placeholder="Any path or url pointing to a file or directory of files",
 )
-
-# we initialize chain after authentication is OK
-# and upload and data source widgets are in place
-if st.session_state["chain"] is None:
-    update_chain()
 
 # generate new chain for new data source / uploaded file
 # make sure to do this only once per input / on change
@@ -66,10 +64,28 @@ if uploaded_files and uploaded_files != st.session_state["uploaded_files"]:
     st.session_state["data_source"] = uploaded_files
     update_chain()
 
+# we initialize chain after authentication is OK
+# and upload and data source widgets are in place
+# but before existing vector stores are listed
+if st.session_state["chain"] is None:
+    update_chain()
+
+# List existing vector stores to be able to load them
+vector_store = data_source_container.selectbox(
+    "Select Knowledge Base",
+    options=st.session_state["existing_vector_stores"],
+    format_func=format_vector_stores,
+    index=0,
+)
+if vector_store and vector_store != st.session_state["vector_store"]:
+    logger.info(f"Choosen existing vector store: '{vector_store}'")
+    st.session_state["vector_store"] = vector_store
+    st.session_state["data_source"] = vector_store
+    update_chain()
 
 # As streamlit reruns the whole script on each change
 # it is necessary to repopulate the chat containers
-with text_container:
+with chat_input_container:
     with st.form(key="prompt_input", clear_on_submit=True):
         user_input = st.text_area("You:", key="input", height=100)
         col1, col2 = st.columns([3, 1])
@@ -83,13 +99,12 @@ if clear_button:
     st.session_state["chat_history"] = []
 
 if submit_button and user_input:
-    text_container.empty()
     output = generate_response(user_input)
     st.session_state["past"].append(user_input)
     st.session_state["generated"].append(output)
 
 if st.session_state["generated"]:
-    with response_container:
+    with chat_history_container:
         for i in range(len(st.session_state["generated"])):
             message(st.session_state["past"][i], is_user=True, key=str(i) + "_user")
             message(st.session_state["generated"][i], key=str(i))

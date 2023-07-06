@@ -34,5 +34,11 @@ If you like to contribute, feel free to grab any task
 - [x] Enable fully local / private mode
 - [x] Add option to upload multiple files to a single dataset
 - [x] Decouple datachad modules from streamlit
-- [ ] Support streaming responses
+- [ ] Add user creation and login
+- [ ] Load and delete existing knowledge bases
+- [ ] Make all I/O asynchronous
+- [ ] Implement FastAPI routes and backend app
+- [ ] Implement a proper frontend (react or whatever)
+- [ ] containerize the app
+- [ ] deploy the app with k8s
 - [ ] Add Image caption and Audio transcription support
