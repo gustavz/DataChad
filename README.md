@@ -34,6 +34,8 @@ If you like to contribute, feel free to grab any task
 - [x] Enable fully local / private mode
 - [x] Add option to upload multiple files to a single dataset
 - [x] Decouple datachad modules from streamlit
+- [ ] remove all local mode and other V1 stuff
+- [ ] Exchange downloaded file storage with tempfile
 - [ ] Add user creation and login
 - [ ] Load and delete existing knowledge bases
 - [ ] Make all I/O asynchronous

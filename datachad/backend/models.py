@@ -71,6 +71,7 @@ def get_model(options: dict, credentials: dict) -> BaseLanguageModel:
                 model_name=options["model"].name,
                 temperature=options["temperature"],
                 openai_api_key=credentials["openai_api_key"],
+                streaming=True,
             )
         case MODELS.GPT4ALL.name:
             model = GPT4All(

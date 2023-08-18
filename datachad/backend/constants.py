@@ -6,4 +6,4 @@ GPT4ALL_BINARY = "ggml-gpt4all-j-v1.3-groovy.bin"
 
 DEFAULT_USER = "admin"
 
-FORCE_LOCAL_DEEPLAKE = False
+FORCE_LOCAL_DEEPLAKE = True

@@ -5,8 +5,10 @@ import openai
 import streamlit as st
 from dotenv import load_dotenv
 from langchain.callbacks import OpenAICallbackHandler, get_openai_callback
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.memory.chat_message_histories import StreamlitChatMessageHistory
 
-from datachad.backend.chain import get_qa_chain
+from datachad.backend.chain import get_conversational_retrieval_chain
 from datachad.backend.deeplake import (
     get_data_source_from_deeplake_dataset_path,
     get_deeplake_vector_store_paths_for_user,
@@ -16,6 +18,7 @@ from datachad.backend.logging import logger
 from datachad.backend.models import MODELS, MODES
 from datachad.streamlit.constants import (
     ACTIVELOOP_HELP,
+    APP_NAME,
     AUTHENTICATION_HELP,
     CHUNK_OVERLAP_PCT,
     CHUNK_SIZE,
@@ -34,6 +37,8 @@ from datachad.streamlit.constants import (
     PROJECT_URL,
     STORE_DOCS_EXTRA,
     TEMPERATURE,
+    UPLOAD_HELP,
+    USAGE_HELP,
 )
 
 # loads environment variables
@@ -43,10 +48,7 @@ load_dotenv()
 def initialize_session_state():
     # Initialise all session state variables with defaults
     SESSION_DEFAULTS = {
-        "past": [],
         "usage": {},
-        "chat_history": [],
-        "generated": [],
         "auth_ok": False,
         "chain": None,
         "openai_api_key": None,
@@ -68,11 +70,33 @@ def initialize_session_state():
         "store_docs_extra": STORE_DOCS_EXTRA,
         "vector_store": None,
         "existing_vector_stores": [],
+        "msgs": StreamlitChatMessageHistory(),
+        # widget container definition (order matters!)
+        "authentication_container": st.sidebar.container(),
+        "advanced_options_container": st.sidebar.container(),
+        "data_source_container": st.sidebar.container(),
+        "info_container": st.sidebar.empty(),
+        "usage_container": st.sidebar.container(),
     }
 
     for k, v in SESSION_DEFAULTS.items():
         if k not in st.session_state:
             st.session_state[k] = v
+
+
+def page_header():
+    # Page options and header
+    st.set_option("client.showErrorDetails", True)
+    st.set_page_config(
+        page_title=APP_NAME,
+        page_icon=PAGE_ICON,
+        initial_sidebar_state="expanded",
+        layout="centered",
+    )
+    st.markdown(
+        f"<h1 style='text-align: center;'>{APP_NAME} {PAGE_ICON} <br> I know all about your data!</h1>",
+        unsafe_allow_html=True,
+    )
 
 
 def authentication_form() -> None:
@@ -177,7 +201,7 @@ def update_model_on_mode_change():
 
 def authentication_and_options_side_bar():
     # Sidebar with Authentication and Advanced Options
-    with st.sidebar:
+    with st.session_state["authentication_container"]:
         mode = st.selectbox(
             "Mode",
             MODES.all(),
@@ -195,6 +219,7 @@ def authentication_and_options_side_bar():
         if not app_can_be_started():
             st.stop()
 
+    with st.session_state["advanced_options_container"]:
         # Advanced Options
         if ENABLE_ADVANCED_OPTIONS:
             advanced_options_form()
@@ -285,11 +310,12 @@ def update_chain() -> None:
                 "activeloop_token": st.session_state["activeloop_token"],
                 "activeloop_id": st.session_state["activeloop_id"],
             }
-            st.session_state["chain"] = get_qa_chain(
+            st.session_state["chain"] = get_conversational_retrieval_chain(
                 data_source=data_source,
                 vector_store_path=vector_store_path,
                 options=options,
                 credentials=credentials,
+                chat_memory=st.session_state["msgs"],
             )
             if st.session_state["uploaded_files"] == st.session_state["data_source"]:
                 # remove uploaded files from disk
@@ -309,6 +335,99 @@ def update_chain() -> None:
         st.session_state["info_container"].error(msg, icon=PAGE_ICON)
 
 
+def get_existing_vector_stores(options: dict, credentials: dict) -> list[str]:
+    return [None] + get_deeplake_vector_store_paths_for_user(options, credentials)
+
+
+def format_vector_stores(option: str) -> str:
+    if option is not None:
+        return get_data_source_from_deeplake_dataset_path(option)
+    return option
+
+
+def usage_side_bar():
+    # Usage sidebar with total used tokens and costs
+    # We put this at the end to be able to show usage after the first response
+    with st.session_state["usage_container"]:
+        if st.session_state["usage"]:
+            st.divider()
+            st.title("Usage", help=USAGE_HELP)
+            col1, col2 = st.columns(2)
+            col1.metric("Total Tokens", st.session_state["usage"]["total_tokens"])
+            col2.metric("Total Costs in $", st.session_state["usage"]["total_cost"])
+
+
+def upload_data_source():
+    # file upload and data source input widgets
+    uploaded_files = st.session_state["data_source_container"].file_uploader(
+        "Upload Files", accept_multiple_files=True, help=UPLOAD_HELP
+    )
+    data_source = st.session_state["data_source_container"].text_input(
+        "Enter any Data Source",
+        placeholder="Any path or url pointing to a file or directory of files",
+    )
+
+    # generate new chain for new data source / uploaded file
+    # make sure to do this only once per input / on change
+    if data_source and data_source != st.session_state["data_source"]:
+        logger.info(f"Data source provided: '{data_source}'")
+        st.session_state["data_source"] = data_source
+        update_chain()
+
+    if uploaded_files and uploaded_files != st.session_state["uploaded_files"]:
+        logger.info(f"Uploaded files: '{uploaded_files}'")
+        st.session_state["uploaded_files"] = uploaded_files
+        st.session_state["data_source"] = uploaded_files
+        update_chain()
+
+    # we initialize chain after authentication is OK
+    # and upload and data source widgets are in place
+    # but before existing vector stores are listed
+    if st.session_state["chain"] is None:
+        update_chain()
+
+
+def vector_store_selection():
+    # List existing vector stores to be able to load them
+    vector_store = st.session_state["data_source_container"].selectbox(
+        "Select Knowledge Base",
+        options=st.session_state["existing_vector_stores"],
+        format_func=format_vector_stores,
+        index=0,
+    )
+    if vector_store and vector_store != st.session_state["vector_store"]:
+        logger.info(f"Choosen existing vector store: '{vector_store}'")
+        st.session_state["vector_store"] = vector_store
+        st.session_state["data_source"] = vector_store
+        update_chain()
+
+
+class StreamHandler(BaseCallbackHandler):
+    def __init__(
+        self, container: st.delta_generator.DeltaGenerator, initial_text: str = ""
+    ):
+        self.container = container
+        self.text = initial_text
+
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        self.text += token
+        self.container.markdown(self.text)
+
+
+class PrintRetrievalHandler(BaseCallbackHandler):
+    def __init__(self, container):
+        self.container = container.expander("Context Retrieval")
+
+    def on_retriever_start(self, query: str, **kwargs):
+        self.container.write(f"**Question:** {query}")
+
+    def on_retriever_end(self, documents, **kwargs):
+        for idx, doc in enumerate(documents):
+            source = os.path.basename(doc.metadata["source"])
+            self.container.write(f"**Document {idx} from {source}**")
+            self.container.markdown(doc.page_content)
+
+
 def update_usage(cb: OpenAICallbackHandler) -> None:
     # Accumulate API call usage via callbacks
     logger.info(f"Usage: {cb}")
@@ -324,23 +443,23 @@ def update_usage(cb: OpenAICallbackHandler) -> None:
         st.session_state["usage"][prop] += value
 
 
-def generate_response(prompt: str) -> str:
-    # call the chain to generate responses and add them to the chat history
-    with st.spinner("Generating response"), get_openai_callback() as cb:
-        response = st.session_state["chain"](
-            {"question": prompt, "chat_history": st.session_state["chat_history"]}
-        )
-        update_usage(cb)
-    logger.info(f"Response: '{response}'")
-    st.session_state["chat_history"].append((prompt, response["answer"]))
-    return response["answer"]
+def chat_interface():
+    if len(st.session_state["msgs"].messages) == 0:
+        st.session_state["msgs"].clear()
+        st.session_state["msgs"].add_ai_message("How can I help you?")
 
+    avatars = {"human": "user", "ai": "assistant"}
+    for msg in st.session_state["msgs"].messages:
+        st.chat_message(avatars[msg.type]).write(msg.content)
 
-def get_existing_vector_stores(options: dict, credentials: dict) -> list[str]:
-    return [None] + get_deeplake_vector_store_paths_for_user(options, credentials)
+    if user_query := st.chat_input(placeholder="Ask me anything!"):
+        st.chat_message("user").write(user_query)
 
-
-def format_vector_stores(option: str) -> str:
-    if option is not None:
-        return get_data_source_from_deeplake_dataset_path(option)
-    return option
+        with st.chat_message("assistant"), get_openai_callback() as cb:
+            retrieval_handler = PrintRetrievalHandler(st.container())
+            stream_handler = StreamHandler(st.empty())
+            response = st.session_state["chain"].run(
+                user_query, callbacks=[retrieval_handler, stream_handler]
+            )
+            logger.info(f"Response: '{response}'")
+            update_usage(cb)

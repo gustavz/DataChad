@@ -1,4 +1,6 @@
 from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
+from langchain.schema import BaseChatMessageHistory
 
 from datachad.backend.deeplake import get_deeplake_vector_store
 from datachad.backend.logging import logger
@@ -18,8 +20,12 @@ def get_search_kwargs(options: dict):
     return search_kwargs
 
 
-def get_qa_chain(
-    data_source: str, vector_store_path: str, options: dict, credentials: dict
+def get_conversational_retrieval_chain(
+    data_source: str,
+    vector_store_path: str,
+    options: dict,
+    credentials: dict,
+    chat_memory: BaseChatMessageHistory,
 ) -> ConversationalRetrievalChain:
     # create the langchain that will be called to generate responses
     vector_store = get_deeplake_vector_store(
@@ -29,6 +35,9 @@ def get_qa_chain(
     search_kwargs = get_search_kwargs(options)
     retriever.search_kwargs.update(search_kwargs)
     model = get_model(options, credentials)
+    memory = ConversationBufferMemory(
+        memory_key="chat_history", chat_memory=chat_memory, return_messages=True
+    )
     chain = ConversationalRetrievalChain.from_llm(
         model,
         retriever=retriever,
@@ -39,6 +48,7 @@ def get_qa_chain(
         max_tokens_limit=options["max_tokens"],
         combine_docs_chain_kwargs={"prompt": QA_PROMPT},
         condense_question_prompt=CONDENSE_QUESTION_PROMPT,
+        memory=memory,
     )
     logger.info(f"Chain for data source {data_source} and settings {options} build!")
     return chain

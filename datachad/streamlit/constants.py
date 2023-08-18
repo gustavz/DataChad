@@ -1,10 +1,10 @@
 PAGE_ICON = "🤖"
-APP_NAME = "DataChad"
+APP_NAME = "DataChad V2"
 PROJECT_URL = "https://github.com/gustavz/DataChad"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
 CHUNK_SIZE = 512
-CHUNK_OVERLAP_PCT = 25
+CHUNK_OVERLAP_PCT = 15
 TEMPERATURE = 0.0
 MAX_TOKENS = 3584
 MODEL_N_CTX = 1000
