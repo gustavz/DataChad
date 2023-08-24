@@ -7,11 +7,11 @@ from deeplake.util.bugout_reporter import deeplake_reporter
 from langchain.schema import Document
 from langchain.vectorstores import DeepLake, VectorStore
 
-from datachad.backend.constants import DATA_PATH, DEFAULT_USER, FORCE_LOCAL_DEEPLAKE
+from datachad.backend.constants import DATA_PATH, DEFAULT_USER, LOCAL_DEEPLAKE
 from datachad.backend.io import clean_string_for_storing
 from datachad.backend.loader import load_data_source, split_docs
 from datachad.backend.logging import logger
-from datachad.backend.models import MODES, get_embeddings
+from datachad.backend.models import get_embeddings
 from datachad.backend.utils import clean_string_for_storing
 
 SPLIT = "_"
@@ -60,7 +60,7 @@ def list_deeplake_datasets(
 
 def get_deeplake_dataset_path(dataset_name: str, options: dict, credentials: dict):
     # TODO add user id and dataset size as unique id
-    if options["mode"] == MODES.LOCAL or FORCE_LOCAL_DEEPLAKE:
+    if LOCAL_DEEPLAKE:
         dataset_path = str(DATA_PATH / dataset_name)
     else:
         dataset_path = f"hub://{credentials['activeloop_id']}/{dataset_name}"
@@ -77,10 +77,8 @@ def delete_all_deeplake_datasets(credentials: dict):
         deeplake.delete(path, token=credentials["activeloop_token"], force=True)
 
 
-def get_existing_deeplake_vector_store_paths(
-    options: str, credentials: dict
-) -> list[str]:
-    if options["mode"] == MODES.LOCAL or FORCE_LOCAL_DEEPLAKE:
+def get_existing_deeplake_vector_store_paths(credentials: dict) -> list[str]:
+    if LOCAL_DEEPLAKE:
         return glob(str(DATA_PATH / "*"), recursive=False)
     else:
         dataset_names = list_deeplake_datasets(
@@ -90,17 +88,18 @@ def get_existing_deeplake_vector_store_paths(
         return dataset_pahs
 
 
-def get_deeplake_vector_store_paths_for_user(
-    options: str, credentials: dict
-) -> list[str]:
-    all_paths = get_existing_deeplake_vector_store_paths(options, credentials)
+def get_deeplake_vector_store_paths_for_user(credentials: dict) -> list[str]:
+    all_paths = get_existing_deeplake_vector_store_paths(credentials)
     # TODO: replace DEFAULT_USER with user id once supported
     user_paths = [p for p in all_paths if p.split(SPLIT)[-1] == DEFAULT_USER]
     return user_paths
 
 
 def get_data_source_from_deeplake_dataset_path(dataset_path):
-    return dataset_path.split(SPLIT)[-4].split("/")[-1]
+    data_source = (
+        f"{SPLIT}".join(dataset_path.split(SPLIT)[:-3]).split("/")[-1].lstrip("data-")
+    )
+    return data_source
 
 
 def get_deeplake_vector_store_path(

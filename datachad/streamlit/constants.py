@@ -1,26 +1,8 @@
 PAGE_ICON = "🤖"
-APP_NAME = "DataChad V2"
+APP_NAME = "DataChad"
 PROJECT_URL = "https://github.com/gustavz/DataChad"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
-CHUNK_SIZE = 512
-CHUNK_OVERLAP_PCT = 15
-TEMPERATURE = 0.0
-MAX_TOKENS = 3584
-MODEL_N_CTX = 1000
-MAXIMAL_MARGINAL_RELEVANCE = False
-DISTANCE_METRIC = "cos"
-K_FETCH_K_RATIO = 3
-
-ENABLE_ADVANCED_OPTIONS = True
-ENABLE_LOCAL_MODE = True
-STORE_DOCS_EXTRA = False
-
-MODE_HELP = """
-Choose between `OpenAI` which uses the openai library to make API calls, or `Local` which runs all operations (Embedding, Vector Stor and LLM) locally.\n
-To enable `Local` mode (disabled for the demo) set `ENABLE_LOCAL_MODE` to `True` in `datachad/constants.py` before deploying the app.\n
-Furthermore you need to have the model binaries downloaded and stored inside `./models/`\n
-"""
 
 LOCAL_MODE_DISABLED_HELP = """
 This is a demo hosted with limited resources. Local Mode is not enabled.\n

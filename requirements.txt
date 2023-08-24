@@ -1,4 +1,4 @@
-streamlit==1.23.1
+streamlit==1.26.0
 deeplake==3.6.19
 openai==0.27.6
 langchain==0.0.267
@@ -10,7 +10,6 @@ beautifulsoup4==4.12.2
 bs4==0.0.1
 python-dotenv==1.0.0
 sentence-transformers==2.2.2
-pygpt4all==1.1.0
 tqdm==4.65.0
 GitPython==3.1.31
 pypdf==3.15.1

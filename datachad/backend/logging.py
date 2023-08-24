@@ -1,23 +1,20 @@
 import logging
 import sys
 
-logger = logging.getLogger(__name__)
 
-
-def configure_logger(debug: int = 0) -> None:
-    # boilerplate code to enable logging in the streamlit app console
-    log_level = logging.DEBUG if debug == 1 else logging.INFO
-    logger.setLevel(log_level)
-
-    stream_handler = logging.StreamHandler(stream=sys.stdout)
-    stream_handler.setLevel(log_level)
-
-    formatter = logging.Formatter("%(name)s :: %(levelname)s :: %(message)s")
-
-    stream_handler.setFormatter(formatter)
-
-    logger.addHandler(stream_handler)
+def create_logger(level="DEBUG"):
+    logger = logging.getLogger(__name__)
     logger.propagate = False
+    logger.setLevel(level)
+    # if no streamhandler present, add one
+    if not any(
+        isinstance(handler, logging.StreamHandler) for handler in logger.handlers
+    ):
+        stream_handler = logging.StreamHandler(stream=sys.stdout)
+        formatter = logging.Formatter("%(name)s :: %(levelname)s :: %(message)s")
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+    return logger
 
 
-configure_logger(0)
+logger = create_logger()

@@ -1,17 +1,19 @@
-from datachad.streamlit.helper import (
-    authentication_and_options_side_bar,
-    chat_interface,
-    initialize_session_state,
+from datachad.streamlit.helper import init_session_state
+from datachad.streamlit.widgets import (
+    advanced_options_widget,
+    authentication_widget,
+    chat_interface_widget,
+    init_widgets,
     page_header,
-    upload_data_source,
-    usage_side_bar,
-    vector_store_selection,
+    select_data_source_widget,
+    usage_widget,
 )
 
+init_session_state()
 page_header()
-initialize_session_state()
-authentication_and_options_side_bar()
-upload_data_source()
-vector_store_selection()
-chat_interface()
-usage_side_bar()
+init_widgets()
+authentication_widget()
+select_data_source_widget()
+advanced_options_widget()
+chat_interface_widget()
+usage_widget()

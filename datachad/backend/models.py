@@ -4,14 +4,12 @@ from typing import Any, List
 import streamlit as st
 import tiktoken
 from langchain.base_language import BaseLanguageModel
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.embeddings.openai import Embeddings, OpenAIEmbeddings
-from langchain.llms import GPT4All
 from transformers import AutoTokenizer
 
-from datachad.backend.constants import GPT4ALL_BINARY, MODEL_PATH
+from datachad.backend.constants import MODEL_PATH
 from datachad.backend.logging import logger
 
 
@@ -24,18 +22,11 @@ class Enum:
 @dataclass
 class Model:
     name: str
-    mode: str
     embedding: str
     path: str = None  # for local models only
 
     def __str__(self) -> str:
         return self.name
-
-
-class MODES(Enum):
-    # Add more modes as needed
-    OPENAI = "OpenAI"
-    LOCAL = "Local"
 
 
 class EMBEDDINGS(Enum):
@@ -48,20 +39,9 @@ class MODELS(Enum):
     # Add more models as needed
     GPT35TURBO = Model(
         name="gpt-3.5-turbo",
-        mode=MODES.OPENAI,
         embedding=EMBEDDINGS.OPENAI,
     )
-    GPT4 = Model(name="gpt-4", mode=MODES.OPENAI, embedding=EMBEDDINGS.OPENAI)
-    GPT4ALL = Model(
-        name="GPT4All",
-        mode=MODES.LOCAL,
-        embedding=EMBEDDINGS.HUGGINGFACE,
-        path=str(MODEL_PATH / GPT4ALL_BINARY),
-    )
-
-    @classmethod
-    def for_mode(cls, mode) -> List[Model]:
-        return [m for m in cls.all() if isinstance(m, Model) and m.mode == mode]
+    GPT4 = Model(name="gpt-4", embedding=EMBEDDINGS.OPENAI)
 
 
 def get_model(options: dict, credentials: dict) -> BaseLanguageModel:
@@ -72,15 +52,6 @@ def get_model(options: dict, credentials: dict) -> BaseLanguageModel:
                 temperature=options["temperature"],
                 openai_api_key=credentials["openai_api_key"],
                 streaming=True,
-            )
-        case MODELS.GPT4ALL.name:
-            model = GPT4All(
-                model=options["model"].path,
-                n_ctx=options["model_n_ctx"],
-                backend="gptj",
-                temp=options["temperature"],
-                verbose=True,
-                callbacks=[StreamingStdOutCallbackHandler()],
             )
         # Added models need to be cased here
         case _default:
