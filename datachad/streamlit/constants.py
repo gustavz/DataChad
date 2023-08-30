@@ -1,5 +1,5 @@
 PAGE_ICON = "🤖"
-APP_NAME = "DataChad"
+APP_NAME = "DataChad V2"
 PROJECT_URL = "https://github.com/gustavz/DataChad"
 DEFAULT_DATA_SOURCE = "https://github.com/gustavz/DataChad.git"
 
