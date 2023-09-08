@@ -9,7 +9,7 @@ from langchain.document_loaders import (
     GitLoader,
     NotebookLoader,
     OnlinePDFLoader,
-    PyPDFLoader,
+    PyPDFium2Loader,
     PythonLoader,
     TextLoader,
     UnstructuredEPubLoader,
@@ -59,9 +59,7 @@ class AutoGitLoader:
         try:
             return docs
         except:
-            raise RuntimeError(
-                "Error loading git. Make sure to use HTTPS GitHub repo links."
-            )
+            raise RuntimeError("Error loading git. Make sure to use HTTPS GitHub repo links.")
 
 
 FILE_LOADER_MAPPING = {
@@ -73,7 +71,7 @@ FILE_LOADER_MAPPING = {
     ".html": (UnstructuredHTMLLoader, {}),
     ".md": (UnstructuredMarkdownLoader, {}),
     ".odt": (UnstructuredODTLoader, {}),
-    ".pdf": (PyPDFLoader, {}),
+    ".pdf": (PyPDFium2Loader, {}),
     ".ppt": (UnstructuredPowerPointLoader, {}),
     ".pptx": (UnstructuredPowerPointLoader, {}),
     ".txt": (TextLoader, {"encoding": "utf8"}),
@@ -154,7 +152,7 @@ def split_docs(docs: List[Document], options: dict) -> List[Document]:
         chunk_size=options["chunk_size"],
         chunk_overlap=chunk_overlap,
         length_function=length_function,
-        separators=["\n\n", "\n", " ", ""],
+        separators=["\n\n", "#", "\.", "!", "\?", "\n", ",", " ", ""],
     )
 
     splitted_docs = text_splitter.split_documents(docs)

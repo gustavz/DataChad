@@ -7,9 +7,7 @@ def create_logger(level="DEBUG"):
     logger.propagate = False
     logger.setLevel(level)
     # if no streamhandler present, add one
-    if not any(
-        isinstance(handler, logging.StreamHandler) for handler in logger.handlers
-    ):
+    if not any(isinstance(handler, logging.StreamHandler) for handler in logger.handlers):
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         formatter = logging.Formatter("%(name)s :: %(levelname)s :: %(message)s")
         stream_handler.setFormatter(formatter)

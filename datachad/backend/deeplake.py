@@ -1,3 +1,4 @@
+from datetime import datetime
 from glob import glob
 from typing import List
 
@@ -7,14 +8,19 @@ from deeplake.util.bugout_reporter import deeplake_reporter
 from langchain.schema import Document
 from langchain.vectorstores import DeepLake, VectorStore
 
-from datachad.backend.constants import DATA_PATH, DEFAULT_USER, LOCAL_DEEPLAKE
+from datachad.backend.constants import (
+    DATA_PATH,
+    DEFAULT_USER,
+    LOCAL_DEEPLAKE,
+    STORE_DOCS_EXTRA,
+)
 from datachad.backend.io import clean_string_for_storing
 from datachad.backend.loader import load_data_source, split_docs
 from datachad.backend.logging import logger
 from datachad.backend.models import get_embeddings
 from datachad.backend.utils import clean_string_for_storing
 
-SPLIT = "_"
+SPLIT = "-_-"
 
 
 def list_deeplake_datasets(
@@ -35,9 +41,7 @@ def list_deeplake_datasets(
         suffix_public = LIST_DATASETS.format("public")
         suffix_user = LIST_DATASETS.format("all")
         if workspace:
-            res_datasets = self.get_workspace_datasets(
-                workspace, suffix_public, suffix_user
-            )
+            res_datasets = self.get_workspace_datasets(workspace, suffix_public, suffix_user)
         else:
             public_datasets = self.request(
                 "GET",
@@ -58,8 +62,7 @@ def list_deeplake_datasets(
     return datasets
 
 
-def get_deeplake_dataset_path(dataset_name: str, options: dict, credentials: dict):
-    # TODO add user id and dataset size as unique id
+def get_deeplake_dataset_path(dataset_name: str, credentials: dict):
     if LOCAL_DEEPLAKE:
         dataset_path = str(DATA_PATH / dataset_name)
     else:
@@ -68,9 +71,7 @@ def get_deeplake_dataset_path(dataset_name: str, options: dict, credentials: dic
 
 
 def delete_all_deeplake_datasets(credentials: dict):
-    datasets = list_deeplake_datasets(
-        credentials["activeloop_id"], credentials["activeloop_token"]
-    )
+    datasets = list_deeplake_datasets(credentials["activeloop_id"], credentials["activeloop_token"])
     for dataset in datasets:
         path = f"hub://{dataset}"
         logger.info(f"Deleting dataset: {path}")
@@ -88,31 +89,37 @@ def get_existing_deeplake_vector_store_paths(credentials: dict) -> list[str]:
         return dataset_pahs
 
 
-def get_deeplake_vector_store_paths_for_user(credentials: dict) -> list[str]:
+def get_or_create_deeplake_vector_store_paths_for_user(
+    credentials: dict, store_type: str
+) -> list[str]:
     all_paths = get_existing_deeplake_vector_store_paths(credentials)
-    # TODO: replace DEFAULT_USER with user id once supported
-    user_paths = [p for p in all_paths if p.split(SPLIT)[-1] == DEFAULT_USER]
+    # TODO: replace DEFAULT_USER with user id once stored in credentials
+    user_paths = [
+        p
+        for p in all_paths
+        if p.split(SPLIT)[-1] == DEFAULT_USER and p.split(SPLIT)[-2] == store_type
+    ]
     return user_paths
 
 
-def get_data_source_from_deeplake_dataset_path(dataset_path):
-    data_source = (
-        f"{SPLIT}".join(dataset_path.split(SPLIT)[:-3]).split("/")[-1].lstrip("data-")
-    )
-    return data_source
+def get_or_create_deeplake_vector_store_display_name(dataset_path):
+    splits = dataset_path.split(SPLIT)
+    return f"{splits[-4]} ({splits[-3][:4]}-{splits[-3][4:6]}-{splits[-3][6:8]})"
 
 
-def get_deeplake_vector_store_path(
-    data_source: str, options: dict, credentials: dict
-) -> str:
+def get_unique_deeplake_vector_store_path(store_type, name, credentials):
+    store_type_dict = {"Knowledge Base": "kb", "Smart FAQ": "faq"}
     dataset_name = (
-        f"{clean_string_for_storing(data_source)}"
-        f"{SPLIT}{options['chunk_size']}-{options['chunk_overlap_pct']}"
-        f"{SPLIT}{options['model'].embedding}"
-        # TODO: replace DEFAULT_USER with user id once supported
+        # [-4] vector store name
+        f"{SPLIT}{name}"
+        # [-3]: creation time
+        f"{SPLIT}{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # [-2]: vector store type
+        f"{SPLIT}{store_type_dict[store_type]}"
+        # [-1]: user
         f"{SPLIT}{DEFAULT_USER}"
     )
-    dataset_path = get_deeplake_dataset_path(dataset_name, options, credentials)
+    dataset_path = get_deeplake_dataset_path(dataset_name, credentials)
     return dataset_path
 
 
@@ -169,15 +176,13 @@ def store_docs_to_deeplake(docs: List[Document], docs_path: str, credentials: di
 def load_data_source_or_docs_from_deeplake(
     data_source: str, options: dict, credentials: dict
 ) -> List[Document]:
-    if options["store_docs_extra"]:
+    if STORE_DOCS_EXTRA:
         docs_path = get_deeplake_docs_path(data_source, options, credentials)
         if deeplake.exists(docs_path, token=credentials["activeloop_token"]):
             logger.info(f"Docs exist -> loading docs: {docs_path}")
             docs = load_docs_from_deeplake(docs_path, credentials)
         else:
-            logger.info(
-                f"Docs do not exist for data source -> loading data source: {data_source}"
-            )
+            logger.info(f"Docs do not exist for data source -> loading data source: {data_source}")
             docs = load_data_source(data_source)
             store_docs_to_deeplake(docs, docs_path, credentials)
         logger.info(f"Docs {docs_path} loaded!")
@@ -186,15 +191,10 @@ def load_data_source_or_docs_from_deeplake(
     return docs
 
 
-def get_deeplake_vector_store(
+def get_or_create_deeplake_vector_store(
     data_source: str, vector_store_path: str, options: dict, credentials: dict
 ) -> VectorStore:
-    # either load existing vector store or upload a new one to the hub
     embeddings = get_embeddings(options, credentials)
-    if not vector_store_path:
-        vector_store_path = get_deeplake_vector_store_path(
-            data_source, options, credentials
-        )
     if deeplake.exists(vector_store_path, token=credentials["activeloop_token"]):
         logger.info(f"Vector Store '{vector_store_path}' exists -> loading")
         vector_store = DeepLake(
@@ -213,5 +213,6 @@ def get_deeplake_vector_store(
             dataset_path=vector_store_path,
             token=credentials["activeloop_token"],
         )
+    vector_store.path = vector_store_path
     logger.info(f"Vector Store {vector_store_path} loaded!")
     return vector_store

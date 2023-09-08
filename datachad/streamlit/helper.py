@@ -8,25 +8,25 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.openai_info import get_openai_token_cost_for_model
 from langchain.memory.chat_message_histories import StreamlitChatMessageHistory
 
-from datachad.backend.chain import get_conversational_retrieval_chain
 from datachad.backend.constants import (
     CHUNK_OVERLAP_PCT,
     CHUNK_SIZE,
+    DEFAULT_KNOWLEDGE_BASES,
+    DEFAULT_SMART_FAQ,
     DISTANCE_METRIC,
     K_FETCH_K_RATIO,
     MAX_TOKENS,
     MAXIMAL_MARGINAL_RELEVANCE,
-    STORE_DOCS_EXTRA,
     TEMPERATURE,
 )
 from datachad.backend.deeplake import (
-    get_data_source_from_deeplake_dataset_path,
-    get_deeplake_vector_store_paths_for_user,
+    get_or_create_deeplake_vector_store_display_name,
+    get_or_create_deeplake_vector_store_paths_for_user,
 )
-from datachad.backend.io import delete_files, save_files
+from datachad.backend.jobs import create_chain, create_vector_store
 from datachad.backend.logging import logger
 from datachad.backend.models import MODELS, get_tokenizer
-from datachad.streamlit.constants import DEFAULT_DATA_SOURCE, PAGE_ICON
+from datachad.streamlit.constants import PAGE_ICON
 
 # loads environment variables
 load_dotenv()
@@ -35,16 +35,24 @@ load_dotenv()
 def init_session_state():
     # Initialise all session state variables with defaults
     SESSION_DEFAULTS = {
-        "edited": None,
+        # general usage
         "usage": {},
+        "chat_history": StreamlitChatMessageHistory(),
+        # authentication
+        "openai_api_key": "",
+        "activeloop_token": "",
+        "activeloop_id": "",
+        "credentals": {},
         "auth_ok": False,
-        "chain": None,
-        "openai_api_key": None,
-        "activeloop_token": None,
-        "activeloop_id": None,
+        # data upload
         "uploaded_files": None,
-        "info_container": None,
-        "data_source": DEFAULT_DATA_SOURCE,
+        "upload_type": None,
+        "upload_name": None,
+        # data selection
+        "chain": None,
+        "knowledge_bases": DEFAULT_KNOWLEDGE_BASES,
+        "smart_faq": DEFAULT_SMART_FAQ,
+        # advanced options
         "model": MODELS.GPT35TURBO,
         "k_fetch_k_ratio": K_FETCH_K_RATIO,
         "chunk_size": CHUNK_SIZE,
@@ -53,10 +61,6 @@ def init_session_state():
         "max_tokens": MAX_TOKENS,
         "distance_metric": DISTANCE_METRIC,
         "maximal_marginal_relevance": MAXIMAL_MARGINAL_RELEVANCE,
-        "store_docs_extra": STORE_DOCS_EXTRA,
-        "vector_store": None,
-        "existing_vector_stores": [],
-        "chat_history": StreamlitChatMessageHistory(),
     }
 
     for k, v in SESSION_DEFAULTS.items():
@@ -64,23 +68,21 @@ def init_session_state():
             st.session_state[k] = v
 
 
-def authenticate(
-    openai_api_key: str, activeloop_token: str, activeloop_id: str
-) -> None:
+def authenticate() -> None:
     # Validate all credentials are set and correct
     # Check for env variables to enable local dev and deployments with shared credentials
     openai_api_key = (
-        openai_api_key
+        st.session_state["openai_api_key"]
         or os.environ.get("OPENAI_API_KEY")
         or st.secrets.get("OPENAI_API_KEY")
     )
     activeloop_token = (
-        activeloop_token
+        st.session_state["activeloop_token"]
         or os.environ.get("ACTIVELOOP_TOKEN")
         or st.secrets.get("ACTIVELOOP_TOKEN")
     )
     activeloop_id = (
-        activeloop_id
+        st.session_state["activeloop_id"]
         or os.environ.get("ACTIVELOOP_ID")
         or st.secrets.get("ACTIVELOOP_ID")
     )
@@ -104,99 +106,120 @@ def authenticate(
         return
     # store credentials in the session state
     st.session_state["auth_ok"] = True
-    st.session_state["openai_api_key"] = openai_api_key
-    st.session_state["activeloop_token"] = activeloop_token
-    st.session_state["activeloop_id"] = activeloop_id
-    logger.info("Authentification successful!")
+    st.session_state["credentials"] = {
+        "openai_api_key": openai_api_key,
+        "activeloop_token": activeloop_token,
+        "activeloop_id": activeloop_id,
+    }
+    msg = "Authentification successful!"
+    st.session_state["info_container"].info(msg, icon=PAGE_ICON)
+    logger.info(msg)
 
 
-def update_chain() -> None:
-    # Build chain with parameters from session state and store it back
-    # Also delete chat history to not confuse the bot with old context
+def get_options():
+    return {
+        key: st.session_state[key]
+        for key in [
+            "model",
+            "k_fetch_k_ratio",
+            "chunk_size",
+            "chunk_overlap_pct",
+            "temperature",
+            "max_tokens",
+            "distance_metric",
+            "maximal_marginal_relevance",
+        ]
+    }
+
+
+def update_vector_store():
     try:
-        with st.session_state["info_container"], st.spinner(
-            "Loading Knowledge Base..."
-        ):
-            vector_store_path = None
-            data_source = st.session_state["data_source"]
-            if st.session_state["uploaded_files"] == st.session_state["data_source"]:
-                # Save files uploaded by streamlit to disk and set their path as data source.
-                # We need to repeat this at every chain update as long as data source is the uploaded file
-                # as we need to delete the files after each chain build to make sure to not pollute the app
-                # and to ensure data privacy by not storing user data
-                data_source = save_files(st.session_state["uploaded_files"])
-            if st.session_state["vector_store"] == st.session_state["data_source"]:
-                # Load an existing vector store if it has been choosen
-                vector_store_path = st.session_state["vector_store"]
-                data_source = get_data_source_from_deeplake_dataset_path(
-                    vector_store_path
-                )
-            options = {
-                "model": st.session_state["model"],
-                "k_fetch_k_ratio": st.session_state["k_fetch_k_ratio"],
-                "chunk_size": st.session_state["chunk_size"],
-                "chunk_overlap_pct": st.session_state["chunk_overlap_pct"],
-                "temperature": st.session_state["temperature"],
-                "max_tokens": st.session_state["max_tokens"],
-                "distance_metric": st.session_state["distance_metric"],
-                "maximal_marginal_relevance": st.session_state[
-                    "maximal_marginal_relevance"
-                ],
-                "store_docs_extra": st.session_state["store_docs_extra"],
-            }
-            credentials = {
-                "openai_api_key": st.session_state["openai_api_key"],
-                "activeloop_token": st.session_state["activeloop_token"],
-                "activeloop_id": st.session_state["activeloop_id"],
-            }
-            st.session_state["chain"] = get_conversational_retrieval_chain(
-                data_source=data_source,
-                vector_store_path=vector_store_path,
+        with st.session_state["info_container"], st.spinner("Updating Vector Stores..."):
+            options = get_options()
+            create_vector_store(
+                files=st.session_state["uploaded_files"],
+                store_type=st.session_state["upload_type"],
+                name=st.session_state["upload_name"],
                 options=options,
-                credentials=credentials,
-                chat_memory=st.session_state["chat_history"],
+                credentials=st.session_state["credentials"],
             )
-            if st.session_state["uploaded_files"] == st.session_state["data_source"]:
-                # remove uploaded files from disk
-                delete_files(st.session_state["uploaded_files"])
-            # update list of existing vector stores
-            st.session_state["existing_vector_stores"] = get_existing_vector_stores(
-                credentials
+            msg = (
+                f"Vector Store built for "
+                f"uploaded files: {st.session_state['uploaded_files']} "
+                f"and store type: {st.session_state['upload_type']}"
+                f"with name: {st.session_state['upload_name']}"
+                f"and options: {options}"
             )
-            st.session_state["chat_history"].clear()
-        print("data_source", data_source, type(data_source))
-        msg = f"Data source **{data_source}** is ready to go with model **{st.session_state['model']}**!"
-        logger.info(msg)
-        st.session_state["info_container"].info(msg, icon=PAGE_ICON)
+            logger.info(msg)
+        st.session_state["info_container"].info("Upload successful!", icon=PAGE_ICON)
     except Exception as e:
-        msg = f"Failed to build chain for data source **{data_source}** with model **{st.session_state['model']}**: {e}"
+        msg = f"Failed to build vectore chain with error: {e}"
         logger.error(msg)
         st.session_state["info_container"].error(msg, icon=PAGE_ICON)
 
 
-def get_existing_vector_stores(credentials: dict) -> list[str]:
-    return [None] + get_deeplake_vector_store_paths_for_user(credentials)
+def update_chain():
+    try:
+        with st.session_state["info_container"], st.spinner("Updating Knowledge Base..."):
+            st.session_state["chat_history"].clear()
+            options = get_options()
+            st.session_state["chain"] = create_chain(
+                knowledge_bases=st.session_state["knowledge_bases"],
+                smart_faq=st.session_state["smart_faq"],
+                chat_history=st.session_state["chat_history"],
+                options=options,
+                credentials=st.session_state["credentials"],
+            )
+            msg = (
+                f"Language chain built for "
+                f"knowledge base: {st.session_state['knowledge_bases']} "
+                f"and smart faq: {st.session_state['smart_faq']}"
+                f"with options: {options}"
+            )
+            logger.info(msg)
+        st.session_state["info_container"].info("Selection successful!", icon=PAGE_ICON)
+    except Exception as e:
+        msg = f"Failed to build language chain with error: {e}"
+        logger.error(msg)
+        st.session_state["info_container"].error(msg, icon=PAGE_ICON)
+
+
+def get_existing_smart_faqs_and_default_index() -> list[str]:
+    smart_faqs = get_or_create_deeplake_vector_store_paths_for_user(
+        st.session_state["credentials"], "faq"
+    )
+    index = 0
+    if DEFAULT_SMART_FAQ and DEFAULT_SMART_FAQ in smart_faqs:
+        # we pick the first smart faq as default
+        # so we must sort it to the front
+        smart_faqs = set(smart_faqs)
+        smart_faqs.remove(DEFAULT_SMART_FAQ)
+        smart_faqs = [DEFAULT_SMART_FAQ] + list(smart_faqs)
+        index = 1
+    # first option should always be None
+    smart_faqs = [None] + smart_faqs
+    return smart_faqs, index
+
+
+def get_existing_knowledge_bases() -> list[str]:
+    return get_or_create_deeplake_vector_store_paths_for_user(st.session_state["credentials"], "kb")
 
 
 def format_vector_stores(item: str) -> str:
     if item is not None:
-        return get_data_source_from_deeplake_dataset_path(item)
+        return get_or_create_deeplake_vector_store_display_name(item)
     return item
 
 
 class StreamHandler(BaseCallbackHandler):
-    def __init__(
-        self, container: st.delta_generator.DeltaGenerator, initial_text: str = ""
-    ):
+    def __init__(self, container: st.delta_generator.DeltaGenerator, initial_text: str = ""):
         self.container = container
-        self.text = initial_text
+        self.stream_text = initial_text
         self.chain_state = 0
 
     def on_llm_new_token(self, token: str, **kwargs) -> None:
-        # we don't want to write the condense_question_prompt response
-        if self.chain_state > 0:
-            self.text += token
-            self.container.markdown(self.text)
+        self.stream_text += token
+        self.container.markdown(self.stream_text)
 
     def on_chain_end(self, outputs, **kwargs):
         self.chain_state += 1
@@ -215,7 +238,7 @@ class PrintRetrievalHandler(BaseCallbackHandler):
             source = os.path.basename(doc.metadata["source"])
             page = doc.metadata.get("page")
             output = f"___\n**Source {idx}:** {source}"
-            output += f" (page {page}" if page else ""
+            output += f" (page {page+1})" if page is not None else ""
             self.status.write(output)
             self.status.markdown(doc.page_content)
         self.status.update(state="complete")

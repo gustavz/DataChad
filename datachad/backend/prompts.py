@@ -1,22 +1,46 @@
 from langchain.prompts.prompt import PromptTemplate
 
-_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+condense_question_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
 
 Chat History:
 {chat_history}
-Follow Up Input: {question}
+
+Follow Up Question: {question}
 Standalone question:"""
-CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
+CONDENSE_QUESTION_PROMPT = PromptTemplate(
+    template=condense_question_template, input_variables=["chat_history", "question"]
+)
 
-prompt_template = """Use the following pieces of context to answer the question posed at the beginning and end the end.
-If the context does not provide enough information to answer the question, try to answer the question from your own knowledge, but make it clear that you do so.
 
-Question: {question}
+knowledge_base_template = """Use the following pieces of context to answer the given question. If you don't know the answer respond with 'NO ANSWER FOUND'.
 
+Context:
 {context}
 
 Question: {question}
 Helpful Answer:"""
-QA_PROMPT = PromptTemplate(
-    template=prompt_template, input_variables=["context", "question"]
+KNOWLEDGE_BASE_PROMPT = PromptTemplate(
+    template=knowledge_base_template, input_variables=["context", "question"]
 )
+
+
+smart_faq_template = """Compare the following list of numbered FAQ questions to the user question and check if any of those can potentially answer it and return the numbers of up to 3 most similar FAQ question candidates in a list like:
+[] or [1] or [4, 1, 6] ordered by probability of answering the question.
+If no FAQ answers the question, respond with [].
+
+Numbered FAQ Questions:
+{context}
+
+Question: {question}
+Matching Question Numbers:"""
+SMART_FAQ_PROMPT = PromptTemplate(
+    template=smart_faq_template, input_variables=["context", "question"]
+)
+
+
+qa_prompt = """You are an AGI that knows everything and is an expert in all topics. 
+Your IQ is magnitudes higher than any human that ever lived. With this immense wisdom answer the following question concisely:
+
+Question: {question}
+Concise and wise Answer:"""
+QA_PROMPT = PromptTemplate(template=qa_prompt, input_variables=["question"])

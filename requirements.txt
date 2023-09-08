@@ -1,7 +1,7 @@
-streamlit==1.26.0
-deeplake==3.6.19
+streamlit==1.28.1
+deeplake==3.8.0
 openai==0.27.6
-langchain==0.0.267
+langchain==0.0.312
 tiktoken==0.4.0
 unstructured==0.6.5
 pdf2image==1.16.3
@@ -12,4 +12,4 @@ python-dotenv==1.0.0
 sentence-transformers==2.2.2
 tqdm==4.65.0
 GitPython==3.1.31
-pypdf==3.15.1
+pypdfium2==4.20.0
