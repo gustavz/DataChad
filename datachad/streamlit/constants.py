@@ -38,3 +38,12 @@ This means for each combination of uploaded files, a new vector store is created
 To treat your new upload independently, you need to remove the previous uploads by clicking the `X`, right next to the uploaded file name.\n
 **!!! All uploaded files are removed permanently from the app after the vector stores are created !!!**
 """
+
+UPLOAD_TYPE_HELP = """
+**Knowledge Bases** can be any number of text documents of any type, content and formatting.\n\n
+**Smart FAQs** need to be single documents containing numbered FAQs.
+They need to be in the format of numbers with periods followed by arbirtary text.
+The next FAQ is identified by two new lines `\\n\\n` followed by the next number.
+You can check if your documents are correctly formatted by using the following regex pattern:\n
+`r"(?=\\n\\n\d+\.)"` 
+"""

@@ -94,7 +94,7 @@ def authenticate() -> None:
         # Try to access openai and deeplake
         with st.session_state["info_container"], st.spinner("Authentifying..."):
             openai.api_key = openai_api_key
-            openai.Model.list()
+            openai.models.list()
             deeplake.exists(
                 f"hub://{activeloop_id}/DataChad-Authentication-Check",
                 token=activeloop_token,
@@ -116,7 +116,7 @@ def authenticate() -> None:
     logger.info(msg)
 
 
-def get_options():
+def get_options() -> dict:
     return {
         key: st.session_state[key]
         for key in [
@@ -132,7 +132,7 @@ def get_options():
     }
 
 
-def update_vector_store():
+def update_vector_store() -> None:
     try:
         with st.session_state["info_container"], st.spinner("Updating Vector Stores..."):
             options = get_options()
@@ -158,12 +158,13 @@ def update_vector_store():
         st.session_state["info_container"].error(msg, icon=PAGE_ICON)
 
 
-def update_chain():
+def update_chain() -> None:
     try:
         with st.session_state["info_container"], st.spinner("Updating Knowledge Base..."):
             st.session_state["chat_history"].clear()
             options = get_options()
             st.session_state["chain"] = create_chain(
+                use_vanilla_llm=st.session_state["use_vanilla_llm"],
                 knowledge_bases=st.session_state["knowledge_bases"],
                 smart_faq=st.session_state["smart_faq"],
                 chat_history=st.session_state["chat_history"],
@@ -221,7 +222,7 @@ class StreamHandler(BaseCallbackHandler):
         self.stream_text += token
         self.container.markdown(self.stream_text)
 
-    def on_chain_end(self, outputs, **kwargs):
+    def on_chain_end(self, outputs, **kwargs) -> None:
         self.chain_state += 1
 
 
@@ -229,17 +230,20 @@ class PrintRetrievalHandler(BaseCallbackHandler):
     def __init__(self, container):
         self.status = container.status("**Context Retrieval**")
 
-    def on_retriever_start(self, serialized: dict, query: str, **kwargs):
+    def on_retriever_start(self, serialized: dict, query: str, **kwargs) -> None:
         self.status.write(f"**Question:** {query}")
         self.status.update(label=f"**Context Retrieval:** {query}")
 
-    def on_retriever_end(self, documents, **kwargs):
+    def on_retriever_end(self, documents, **kwargs) -> None:
         for idx, doc in enumerate(documents):
-            source = os.path.basename(doc.metadata["source"])
-            page = doc.metadata.get("page")
-            output = f"___\n**Source {idx}:** {source}"
-            output += f" (page {page+1})" if page is not None else ""
-            self.status.write(output)
+            try:
+                source = os.path.basename(doc.metadata["source"])
+                page = doc.metadata.get("page")
+                output = f"___\n**Source {idx}:** {source}"
+                output += f" (page {page+1})" if page is not None else ""
+                self.status.write(output)
+            except:
+                pass
             self.status.markdown(doc.page_content)
         self.status.update(state="complete")
 
@@ -252,7 +256,7 @@ class UsageHandler(BaseCallbackHandler):
     successful_requests = 0
     total_cost = 0
 
-    def update_usage(self):
+    def update_usage(self) -> None:
         usage_properties = [
             "total_tokens",
             "prompt_tokens",
@@ -266,7 +270,7 @@ class UsageHandler(BaseCallbackHandler):
             st.session_state["usage"].setdefault(prop, 0)
             st.session_state["usage"][prop] += value
 
-    def calculate_costs(self):
+    def calculate_costs(self) -> None:
         model = st.session_state["model"]
         tokenizer = get_tokenizer({"model": model})
         self.prompt_tokens = len(tokenizer.encode(self.prompt))
@@ -277,13 +281,13 @@ class UsageHandler(BaseCallbackHandler):
         prompt_cost = get_openai_token_cost_for_model(model.name, self.prompt_tokens)
         self.total_cost += prompt_cost + completion_cost
 
-    def on_llm_new_token(self, **kwargs):
+    def on_llm_new_token(self, **kwargs) -> None:
         self.completion_tokens += 1
 
-    def on_chat_model_start(self, serialized, messages, **kwargs):
+    def on_chat_model_start(self, serialized, messages, **kwargs) -> None:
         self.successful_requests += 1
         self.prompt += messages[0][0].content
 
-    def on_chain_end(self, outputs, **kwargs):
+    def on_chain_end(self, outputs, **kwargs) -> None:
         self.calculate_costs()
         self.update_usage()

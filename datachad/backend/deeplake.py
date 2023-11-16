@@ -1,6 +1,5 @@
 from datetime import datetime
 from glob import glob
-from typing import List
 
 import deeplake
 from deeplake.client.client import DeepLakeBackendClient
@@ -8,16 +7,11 @@ from deeplake.util.bugout_reporter import deeplake_reporter
 from langchain.schema import Document
 from langchain.vectorstores import DeepLake, VectorStore
 
-from datachad.backend.constants import (
-    DATA_PATH,
-    DEFAULT_USER,
-    LOCAL_DEEPLAKE,
-    STORE_DOCS_EXTRA,
-)
+from datachad.backend.constants import DATA_PATH, DEFAULT_USER, LOCAL_DEEPLAKE, STORE_DOCS_EXTRA
 from datachad.backend.io import clean_string_for_storing
 from datachad.backend.loader import load_data_source, split_docs
 from datachad.backend.logging import logger
-from datachad.backend.models import get_embeddings
+from datachad.backend.models import STORES, get_embeddings
 from datachad.backend.utils import clean_string_for_storing
 
 SPLIT = "-_-"
@@ -62,7 +56,7 @@ def list_deeplake_datasets(
     return datasets
 
 
-def get_deeplake_dataset_path(dataset_name: str, credentials: dict):
+def get_deeplake_dataset_path(dataset_name: str, credentials: dict) -> str:
     if LOCAL_DEEPLAKE:
         dataset_path = str(DATA_PATH / dataset_name)
     else:
@@ -70,7 +64,7 @@ def get_deeplake_dataset_path(dataset_name: str, credentials: dict):
     return dataset_path
 
 
-def delete_all_deeplake_datasets(credentials: dict):
+def delete_all_deeplake_datasets(credentials: dict) -> None:
     datasets = list_deeplake_datasets(credentials["activeloop_id"], credentials["activeloop_token"])
     for dataset in datasets:
         path = f"hub://{dataset}"
@@ -102,13 +96,13 @@ def get_or_create_deeplake_vector_store_paths_for_user(
     return user_paths
 
 
-def get_or_create_deeplake_vector_store_display_name(dataset_path):
+def get_or_create_deeplake_vector_store_display_name(dataset_path: str) -> str:
     splits = dataset_path.split(SPLIT)
     return f"{splits[-4]} ({splits[-3][:4]}-{splits[-3][4:6]}-{splits[-3][6:8]})"
 
 
-def get_unique_deeplake_vector_store_path(store_type, name, credentials):
-    store_type_dict = {"Knowledge Base": "kb", "Smart FAQ": "faq"}
+def get_unique_deeplake_vector_store_path(store_type: str, name: str, credentials: dict) -> str:
+    store_type_dict = {STORES.KNOWLEDGE_BASE: "kb", STORES.SMART_FAQ: "faq"}
     dataset_name = (
         # [-4] vector store name
         f"{SPLIT}{name}"
@@ -130,7 +124,7 @@ def get_deeplake_docs_path(data_source: str, options: dict, credentials: dict) -
     return dataset_path
 
 
-def load_docs_from_deeplake(docs_path: str, credentials: dict) -> List[Document]:
+def load_docs_from_deeplake(docs_path: str, credentials: dict) -> list[Document]:
     ds = deeplake.load(docs_path, token=credentials["activeloop_token"])
     metadatas = ds["metadata"].data()["value"]
     texts = ds["text"].data()["value"]
@@ -144,7 +138,7 @@ def load_docs_from_deeplake(docs_path: str, credentials: dict) -> List[Document]
     return docs
 
 
-def store_docs_to_deeplake(docs: List[Document], docs_path: str, credentials: dict):
+def store_docs_to_deeplake(docs: list[Document], docs_path: str, credentials: dict):
     ds = deeplake.empty(docs_path, token=credentials["activeloop_token"])
     ds.create_tensor(
         "text",
@@ -175,7 +169,7 @@ def store_docs_to_deeplake(docs: List[Document], docs_path: str, credentials: di
 
 def load_data_source_or_docs_from_deeplake(
     data_source: str, options: dict, credentials: dict
-) -> List[Document]:
+) -> list[Document]:
     if STORE_DOCS_EXTRA:
         docs_path = get_deeplake_docs_path(data_source, options, credentials)
         if deeplake.exists(docs_path, token=credentials["activeloop_token"]):
@@ -192,7 +186,7 @@ def load_data_source_or_docs_from_deeplake(
 
 
 def get_or_create_deeplake_vector_store(
-    data_source: str, vector_store_path: str, options: dict, credentials: dict
+    data_source: str, vector_store_path: str, store_type: str, options: dict, credentials: dict
 ) -> VectorStore:
     embeddings = get_embeddings(options, credentials)
     if deeplake.exists(vector_store_path, token=credentials["activeloop_token"]):
@@ -206,13 +200,12 @@ def get_or_create_deeplake_vector_store(
     else:
         logger.info(f"Vector Store '{vector_store_path}' does not exist -> uploading")
         docs = load_data_source_or_docs_from_deeplake(data_source, options, credentials)
-        docs = split_docs(docs, options)
+        docs = split_docs(docs, store_type, options)
         vector_store = DeepLake.from_documents(
             docs,
             embeddings,
             dataset_path=vector_store_path,
             token=credentials["activeloop_token"],
         )
-    vector_store.path = vector_store_path
     logger.info(f"Vector Store {vector_store_path} loaded!")
     return vector_store

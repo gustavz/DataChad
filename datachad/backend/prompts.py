@@ -24,15 +24,14 @@ KNOWLEDGE_BASE_PROMPT = PromptTemplate(
 )
 
 
-smart_faq_template = """Compare the following list of numbered FAQ questions to the user question and check if any of those can potentially answer it and return the numbers of up to 3 most similar FAQ question candidates in a list like:
-[] or [1] or [4, 1, 6] ordered by probability of answering the question.
-If no FAQ answers the question, respond with [].
+smart_faq_template = """Use the following numbered FAQs to answer the given question. If you don't know the answer respond with 'NO ANSWER FOUND'.
+Start your answer with stating which FAQ number helps answer the question the most.
 
-Numbered FAQ Questions:
+Context:
 {context}
 
 Question: {question}
-Matching Question Numbers:"""
+Helpful Answer:"""
 SMART_FAQ_PROMPT = PromptTemplate(
     template=smart_faq_template, input_variables=["context", "question"]
 )

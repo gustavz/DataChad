@@ -7,9 +7,10 @@ from datachad.backend.constants import (
     ENABLE_ADVANCED_OPTIONS,
     MAX_TOKENS,
     TEMPERATURE,
+    USE_VANILLA_LLM,
 )
 from datachad.backend.logging import logger
-from datachad.backend.models import MODELS
+from datachad.backend.models import MODELS, STORES
 from datachad.streamlit.constants import (
     ACTIVELOOP_HELP,
     APP_NAME,
@@ -17,6 +18,7 @@ from datachad.streamlit.constants import (
     PAGE_ICON,
     PROJECT_URL,
     UPLOAD_HELP,
+    UPLOAD_TYPE_HELP,
 )
 from datachad.streamlit.helper import (
     PrintRetrievalHandler,
@@ -31,7 +33,7 @@ from datachad.streamlit.helper import (
 )
 
 
-def page_header():
+def page_header() -> None:
     # Page options and header
     st.set_option("client.showErrorDetails", True)
     st.set_page_config(
@@ -46,7 +48,7 @@ def page_header():
     )
 
 
-def init_widgets():
+def init_widgets() -> None:
     # widget container definition (order matters!)
     with st.sidebar:
         st.session_state["authentication_container"] = st.container()
@@ -56,7 +58,7 @@ def init_widgets():
         st.session_state["info_container"] = st.empty()
 
 
-def authentication_widget():
+def authentication_widget() -> None:
     # Sidebar with Authentication
     with st.session_state["authentication_container"]:
         st.info(f"Learn how it works [here]({PROJECT_URL})")
@@ -92,7 +94,7 @@ def authentication_widget():
         st.stop()
 
 
-def upload_options_widget():
+def upload_options_widget() -> None:
     if ENABLE_ADVANCED_OPTIONS:
         col1, col2 = st.columns(2)
         col1.number_input(
@@ -117,7 +119,7 @@ def upload_options_widget():
         )
 
 
-def selection_options_widget():
+def selection_options_widget() -> None:
     if ENABLE_ADVANCED_OPTIONS:
         st.selectbox(
             "model",
@@ -144,7 +146,7 @@ def selection_options_widget():
         )
 
 
-def data_upload_widget():
+def data_upload_widget() -> None:
     with st.session_state["data_upload_container"], st.expander("Data Upload"), st.form(
         "data_upload"
     ):
@@ -154,7 +156,7 @@ def data_upload_widget():
             help=UPLOAD_HELP,
             key="uploaded_files",
         )
-        st.radio("Upload Type", options=["Knowledge Base", "Smart FAQ"], key="upload_type")
+        st.radio("Upload Type", options=STORES.all(), key="upload_type", help=UPLOAD_TYPE_HELP)
         st.text_input(
             "Upload Name",
             placeholder="Give a descriptive and unique name",
@@ -171,7 +173,7 @@ def data_upload_widget():
             )
 
 
-def data_selection_widget():
+def data_selection_widget() -> None:
     with st.session_state["data_selection_container"], st.expander("Data Selection"), st.form(
         "data_selection"
     ):
@@ -193,15 +195,25 @@ def data_selection_widget():
             default=DEFAULT_KNOWLEDGE_BASES,
             key="knowledge_bases",
         )
+        st.checkbox("Add vanilla LLM answer", value=USE_VANILLA_LLM, key="use_vanilla_llm")
         selection_options_widget()
         submitted = st.form_submit_button("Submit")
     if submitted:
+        if not (
+            st.session_state["knowledge_bases"]
+            or st.session_state["smart_faq"]
+            or st.session_state["use_vanilla_llm"]
+        ):
+            st.session_state["info_container"].error(
+                "Please select at least one of the data sources!", icon=PAGE_ICON
+            )
+            st.stop()
         update_chain()
     if not st.session_state["chain"]:
         update_chain()
 
 
-def chat_interface_widget():
+def chat_interface_widget() -> None:
     if len(st.session_state["chat_history"].messages) == 0:
         st.session_state["chat_history"].clear()
 
@@ -215,16 +227,16 @@ def chat_interface_widget():
         st.chat_message("user").write(user_query)
 
         with st.chat_message("assistant"):
-            retrieval_handler = PrintRetrievalHandler(st.container())
-            stream_handler = StreamHandler(st.empty())
-            usage_handler = UsageHandler()
-            response = st.session_state["chain"].run(
-                user_query, callbacks=[retrieval_handler, stream_handler, usage_handler]
-            )
+            callbacks = []
+            if st.session_state["knowledge_bases"] or st.session_state["smart_faq"]:
+                callbacks.append(PrintRetrievalHandler(st.container()))
+            callbacks.extend([StreamHandler(st.empty()), UsageHandler()])
+
+            response = st.session_state["chain"].run(user_query, callbacks=callbacks)
             logger.info(f"Response: '{response}'")
 
 
-def usage_widget():
+def usage_widget() -> None:
     # Usage sidebar with total used tokens and costs
     # We put this at the end to be able to show usage after the first response
     if st.session_state["usage"]:

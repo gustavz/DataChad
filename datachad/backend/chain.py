@@ -7,16 +7,12 @@ from langchain.chains.conversational_retrieval.base import _get_chat_history
 from langchain.chains.llm import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.memory import ConversationBufferMemory
-from langchain.schema import (
-    BaseChatMessageHistory,
-    BasePromptTemplate,
-    BaseRetriever,
-    Document,
-)
+from langchain.schema import BaseChatMessageHistory, BasePromptTemplate, BaseRetriever, Document
 from langchain.schema.language_model import BaseLanguageModel
 from langchain.schema.vectorstore import VectorStore
 from pydantic import Extra
 
+from datachad.backend.deeplake import get_or_create_deeplake_vector_store_display_name
 from datachad.backend.logging import logger
 from datachad.backend.models import get_model
 from datachad.backend.prompts import (
@@ -25,7 +21,6 @@ from datachad.backend.prompts import (
     QA_PROMPT,
     SMART_FAQ_PROMPT,
 )
-from datachad.backend.deeplake import get_or_create_deeplake_vector_store_display_name
 
 
 class MultiRetrieverFAQChain(Chain):
@@ -34,7 +29,8 @@ class MultiRetrieverFAQChain(Chain):
     """
 
     output_key: str = "answer"
-    rephrase_question = True
+    rephrase_question: bool = True
+    use_vanilla_llm: bool = True
     max_tokens_limit: int
     qa_chain: LLMChain
     condense_question_chain: LLMChain
@@ -125,7 +121,7 @@ class MultiRetrieverFAQChain(Chain):
                 run_manager=run_manager,
             )
             smart_faq_name = get_or_create_deeplake_vector_store_display_name(
-                self.smart_faq_retriever.vectorstore.path
+                self.smart_faq_retriever.vectorstore.dataset_path
             )
             answer = self._add_text_to_answer(
                 f"\n#### SMART FAQ ANSWER `{smart_faq_name}`\n", answer, run_manager
@@ -133,6 +129,7 @@ class MultiRetrieverFAQChain(Chain):
             answer += self.smart_faq_chain.run(
                 input_documents=docs, callbacks=run_manager.get_child(), **inputs
             )
+
         # Answer the question using all provided knowledge bases
         for i, retriever in enumerate(self.knowledge_base_retrievers):
             docs = self._get_docs(
@@ -142,7 +139,7 @@ class MultiRetrieverFAQChain(Chain):
                 run_manager=run_manager,
             )
             knowledge_base_name = get_or_create_deeplake_vector_store_display_name(
-                retriever.vectorstore.path
+                retriever.vectorstore.dataset_path
             )
             answer = self._add_text_to_answer(
                 f"\n#### KNOWLEDGE BASE ANSWER `{knowledge_base_name}`\n",
@@ -152,9 +149,13 @@ class MultiRetrieverFAQChain(Chain):
             answer += self.knowledge_base_chain.run(
                 input_documents=docs, callbacks=run_manager.get_child(), **inputs
             )
-        # Answer the question using the general purpose QA chain
-        answer = self._add_text_to_answer("\n#### LLM ANSWER\n", answer, run_manager)
-        answer += self.qa_chain.run(question=inputs["question"], callbacks=run_manager.get_child())
+        # Answer the question using
+        # the general purpose QA chain
+        if self.use_vanilla_llm:
+            answer = self._add_text_to_answer("\n#### LLM ANSWER\n", answer, run_manager)
+            answer += self.qa_chain.run(
+                question=inputs["question"], callbacks=run_manager.get_child()
+            )
         return {self.output_key: answer}
 
     @classmethod
@@ -169,6 +170,7 @@ class MultiRetrieverFAQChain(Chain):
         smart_faq_retriever: BaseRetriever | None = None,
         retriever_llm: BaseLanguageModel | None = None,
         condense_question_llm: BaseLanguageModel | None = None,
+        use_vanilla_llm: bool = True,
         callbacks: Callbacks = None,
         chain_type: str = "stuff",
         verbose: bool = False,
@@ -207,12 +209,13 @@ class MultiRetrieverFAQChain(Chain):
             knowledge_base_retrievers=knowledge_base_retrievers,
             smart_faq_chain=smart_faq_chain,
             smart_faq_retriever=smart_faq_retriever,
+            use_vanilla_llm=use_vanilla_llm,
             callbacks=callbacks,
             **kwargs,
         )
 
 
-def get_search_kwargs(options: dict) -> dict:
+def get_knowledge_base_search_kwargs(options: dict) -> dict:
     k = int(options["max_tokens"] // options["chunk_size"])
     fetch_k = k * options["k_fetch_k_ratio"]
     search_kwargs = {
@@ -224,17 +227,26 @@ def get_search_kwargs(options: dict) -> dict:
     return search_kwargs
 
 
+def get_smart_faq_search_kwargs(options: dict) -> dict:
+    search_kwargs = {
+        "k": 20,
+        "distance_metric": options["distance_metric"],
+    }
+    return search_kwargs
+
+
 def get_multi_chain(
+    use_vanilla_llm: bool,
     knowledge_bases: list[VectorStore],
     smart_faq: VectorStore,
     chat_history: BaseChatMessageHistory,
     options: dict,
     credentials: dict,
 ) -> MultiRetrieverFAQChain:
-    search_kwargs = get_search_kwargs(options)
-    kb_retrievers = [kb.as_retriever(search_kwargs=search_kwargs) for kb in knowledge_bases]
-    # TODO: FAQs need different search kwargs
-    faq_retriever = smart_faq.as_retriever(search_kwargs=search_kwargs) if smart_faq else None
+    kb_search_kwargs = get_knowledge_base_search_kwargs(options)
+    kb_retrievers = [kb.as_retriever(search_kwargs=kb_search_kwargs) for kb in knowledge_bases]
+    faq_search_kwargs = get_smart_faq_search_kwargs(options)
+    faq_retriever = smart_faq.as_retriever(search_kwargs=faq_search_kwargs) if smart_faq else None
     model = get_model(options, credentials)
     memory = ConversationBufferMemory(
         memory_key="chat_history", chat_memory=chat_history, return_messages=True
@@ -248,6 +260,7 @@ def get_multi_chain(
         knowledge_base_retrievers=kb_retrievers,
         smart_faq_retriever=faq_retriever,
         max_tokens_limit=options["max_tokens"],
+        use_vanilla_llm=use_vanilla_llm,
         memory=memory,
         verbose=True,
     )

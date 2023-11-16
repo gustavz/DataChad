@@ -15,7 +15,7 @@ from datachad.backend.logging import logger
 
 class Enum:
     @classmethod
-    def all(cls) -> List[Any]:
+    def all(cls) -> list[Any]:
         return [v for k, v in cls.__dict__.items() if not k.startswith("_")]
 
 
@@ -23,10 +23,15 @@ class Enum:
 class Model:
     name: str
     embedding: str
-    path: str = None  # for local models only
+    context: int
 
     def __str__(self) -> str:
         return self.name
+
+
+class STORES(Enum):
+    KNOWLEDGE_BASE = "Knowledge Base"
+    SMART_FAQ = "Smart FAQ"
 
 
 class EMBEDDINGS(Enum):
@@ -40,13 +45,23 @@ class MODELS(Enum):
     GPT35TURBO = Model(
         name="gpt-3.5-turbo",
         embedding=EMBEDDINGS.OPENAI,
+        context=4096,
     )
-    GPT4 = Model(name="gpt-4", embedding=EMBEDDINGS.OPENAI)
+    GPT35TURBO16K = Model(
+        name="gpt-3.5-turbo-16k",
+        embedding=EMBEDDINGS.OPENAI,
+        context=16385,
+    )
+    GPT4 = Model(
+        name="gpt-4",
+        embedding=EMBEDDINGS.OPENAI,
+        context=8192,
+    )
 
 
 def get_model(options: dict, credentials: dict) -> BaseLanguageModel:
     match options["model"].name:
-        case MODELS.GPT35TURBO.name | MODELS.GPT4.name:
+        case model_name if model_name.startswith("gpt"):
             model = ChatOpenAI(
                 model_name=options["model"].name,
                 temperature=options["temperature"],
