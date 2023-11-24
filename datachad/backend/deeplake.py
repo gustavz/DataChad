@@ -167,26 +167,34 @@ def store_docs_to_deeplake(docs: list[Document], docs_path: str, credentials: di
     logger.info(f"Stored docs to: {docs_path}")
 
 
-def load_data_source_or_docs_from_deeplake(
-    data_source: str, options: dict, credentials: dict
+def load_data_sources_or_docs_from_deeplake(
+    data_sources: list[str], options: dict, credentials: dict
 ) -> list[Document]:
-    if STORE_DOCS_EXTRA:
-        docs_path = get_deeplake_docs_path(data_source, options, credentials)
-        if deeplake.exists(docs_path, token=credentials["activeloop_token"]):
-            logger.info(f"Docs exist -> loading docs: {docs_path}")
-            docs = load_docs_from_deeplake(docs_path, credentials)
+    docs = []
+    for data_source in data_sources:
+        if STORE_DOCS_EXTRA:
+            docs_path = get_deeplake_docs_path(data_source, options, credentials)
+            if deeplake.exists(docs_path, token=credentials["activeloop_token"]):
+                logger.info(f"Docs exist -> loading docs: {docs_path}")
+                docs.extend(load_docs_from_deeplake(docs_path, credentials))
+            else:
+                logger.info(
+                    f"Docs do not exist for data source -> loading data source: {data_source}"
+                )
+                docs.extend(load_data_source(data_source))
+                store_docs_to_deeplake(docs, docs_path, credentials)
+            logger.info(f"Docs {docs_path} loaded!")
         else:
-            logger.info(f"Docs do not exist for data source -> loading data source: {data_source}")
-            docs = load_data_source(data_source)
-            store_docs_to_deeplake(docs, docs_path, credentials)
-        logger.info(f"Docs {docs_path} loaded!")
-    else:
-        docs = load_data_source(data_source)
+            docs.extend(load_data_source(data_source))
     return docs
 
 
 def get_or_create_deeplake_vector_store(
-    data_source: str, vector_store_path: str, store_type: str, options: dict, credentials: dict
+    data_sources: list[str],
+    vector_store_path: str,
+    store_type: str,
+    options: dict,
+    credentials: dict,
 ) -> VectorStore:
     embeddings = get_embeddings(options, credentials)
     if deeplake.exists(vector_store_path, token=credentials["activeloop_token"]):
@@ -199,7 +207,7 @@ def get_or_create_deeplake_vector_store(
         )
     else:
         logger.info(f"Vector Store '{vector_store_path}' does not exist -> uploading")
-        docs = load_data_source_or_docs_from_deeplake(data_source, options, credentials)
+        docs = load_data_sources_or_docs_from_deeplake(data_sources, options, credentials)
         docs = split_docs(docs, store_type, options)
         vector_store = DeepLake.from_documents(
             docs,

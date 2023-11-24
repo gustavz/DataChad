@@ -46,8 +46,8 @@ def init_session_state():
         "auth_ok": False,
         # data upload
         "uploaded_files": None,
-        "upload_type": None,
-        "upload_name": None,
+        "data_type": None,
+        "data_name": None,
         # data selection
         "chain": None,
         "knowledge_bases": DEFAULT_KNOWLEDGE_BASES,
@@ -137,17 +137,18 @@ def update_vector_store() -> None:
         with st.session_state["info_container"], st.spinner("Updating Vector Stores..."):
             options = get_options()
             create_vector_store(
+                data_source=st.session_state["data_source"],
                 files=st.session_state["uploaded_files"],
-                store_type=st.session_state["upload_type"],
-                name=st.session_state["upload_name"],
+                store_type=st.session_state["data_type"],
+                name=st.session_state["data_name"],
                 options=options,
                 credentials=st.session_state["credentials"],
             )
             msg = (
                 f"Vector Store built for "
                 f"uploaded files: {st.session_state['uploaded_files']} "
-                f"and store type: {st.session_state['upload_type']}"
-                f"with name: {st.session_state['upload_name']}"
+                f"and store type: {st.session_state['data_type']}"
+                f"with name: {st.session_state['data_name']}"
                 f"and options: {options}"
             )
             logger.info(msg)

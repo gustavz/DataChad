@@ -48,6 +48,8 @@ def save_file(file: io.BytesIO, path: Path) -> None:
 def save_files(files: list[io.BytesIO]) -> str:
     # streamlit uploaded files need to be stored locally
     # before embedded and uploaded to the hub
+    if not files:
+        return None
     data_source, save_path = get_data_source_and_save_path(files)
     for file in files:
         save_file(file, save_path)
@@ -57,6 +59,8 @@ def save_files(files: list[io.BytesIO]) -> str:
 def delete_files(files: list[io.BytesIO]) -> None:
     # cleanup locally stored files
     # the correct path is stored to data_source
+    if not files:
+        return
     data_source, _ = get_data_source_and_save_path(files)
     if os.path.isdir(data_source):
         shutil.rmtree(data_source)

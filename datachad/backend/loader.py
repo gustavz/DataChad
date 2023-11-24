@@ -165,7 +165,6 @@ def load_data_source(data_source: str) -> list[Document]:
     is_web = data_source.startswith("http")
     is_dir = os.path.isdir(data_source)
     is_file = os.path.isfile(data_source)
-    docs = None
     try:
         if is_dir:
             docs = load_directory(data_source)
@@ -173,6 +172,8 @@ def load_data_source(data_source: str) -> list[Document]:
             docs = load_document(data_source)
         elif is_web:
             docs = load_document(data_source, WEB_LOADER_MAPPING, WebBaseLoader)
+        else:
+            raise TypeError
         return docs
     except Exception as e:
         error_msg = f"Failed to load your data source '{data_source}'."

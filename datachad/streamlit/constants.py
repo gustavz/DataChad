@@ -39,7 +39,7 @@ To treat your new upload independently, you need to remove the previous uploads 
 **!!! All uploaded files are removed permanently from the app after the vector stores are created !!!**
 """
 
-UPLOAD_TYPE_HELP = """
+DATA_TYPE_HELP = """
 **Knowledge Bases** can be any number of text documents of any type, content and formatting.\n\n
 **Smart FAQs** need to be single documents containing numbered FAQs.
 They need to be in the format of numbers with periods followed by arbirtary text.

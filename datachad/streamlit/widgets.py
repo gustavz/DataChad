@@ -14,11 +14,11 @@ from datachad.backend.models import MODELS, STORES
 from datachad.streamlit.constants import (
     ACTIVELOOP_HELP,
     APP_NAME,
+    DATA_TYPE_HELP,
     OPENAI_HELP,
     PAGE_ICON,
     PROJECT_URL,
     UPLOAD_HELP,
-    UPLOAD_TYPE_HELP,
 )
 from datachad.streamlit.helper import (
     PrintRetrievalHandler,
@@ -150,22 +150,29 @@ def data_upload_widget() -> None:
     with st.session_state["data_upload_container"], st.expander("Data Upload"), st.form(
         "data_upload"
     ):
+        st.text_input(
+            "Data Source",
+            placeholder="Enter any public url or accessible path",
+            key="data_source",
+        )
         st.file_uploader(
             "Upload Files",
             accept_multiple_files=True,
             help=UPLOAD_HELP,
             key="uploaded_files",
         )
-        st.radio("Upload Type", options=STORES.all(), key="upload_type", help=UPLOAD_TYPE_HELP)
+        st.radio("Data Type", options=STORES.all(), key="data_type", help=DATA_TYPE_HELP)
         st.text_input(
-            "Upload Name",
+            "Data Name",
             placeholder="Give a descriptive and unique name",
-            key="upload_name",
+            key="data_name",
         )
         upload_options_widget()
         submitted = st.form_submit_button("Submit")
     if submitted:
-        if st.session_state["uploaded_files"] and st.session_state["upload_name"]:
+        if (
+            st.session_state["uploaded_files"] or st.session_state["data_source"]
+        ) and st.session_state["data_name"]:
             update_vector_store()
         else:
             st.session_state["info_container"].error(
@@ -182,7 +189,6 @@ def data_selection_widget() -> None:
             "Select a single Smart FAQ",
             options=existing_smart_faqs,
             format_func=format_vector_stores,
-            # TODO: chose and store default smart FAQ
             index=default_index,
             key="smart_faq",
         )
@@ -191,7 +197,6 @@ def data_selection_widget() -> None:
             "Select multiple Knowledge Bases",
             options=existing_knowledge_bases,
             format_func=format_vector_stores,
-            # TODO: chose and store default knowledge bases
             default=DEFAULT_KNOWLEDGE_BASES,
             key="knowledge_bases",
         )

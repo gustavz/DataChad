@@ -14,16 +14,17 @@ from datachad.backend.models import STORES
 
 
 def create_vector_store(
+    data_source: str | None,
     files: list[io.BytesIO],
     store_type: str,
     name: str,
     options: dict,
     credentials: dict,
 ) -> VectorStore:
-    data_source = save_files(files)
+    file_data_source = save_files(files)
     vector_store_path = get_unique_deeplake_vector_store_path(store_type, name, credentials)
     vector_store = get_or_create_deeplake_vector_store(
-        data_source=data_source,
+        data_sources=[ds for ds in [data_source, file_data_source] if ds],
         vector_store_path=vector_store_path,
         store_type=store_type,
         options=options,
@@ -43,7 +44,7 @@ def create_chain(
 ) -> Chain:
     knowledge_bases = [
         get_or_create_deeplake_vector_store(
-            data_source=None,
+            data_sources=[],
             vector_store_path=path,
             store_type=STORES.KNOWLEDGE_BASE,
             options=options,
@@ -53,7 +54,7 @@ def create_chain(
     ]
     if smart_faq:
         smart_faq = get_or_create_deeplake_vector_store(
-            data_source=None,
+            data_sources=[],
             vector_store_path=smart_faq,
             store_type=STORES.SMART_FAQ,
             options=options,

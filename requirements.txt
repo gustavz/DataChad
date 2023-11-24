@@ -1,7 +1,7 @@
 streamlit==1.28.1
 deeplake==3.8.0
 openai==1.3.5
-langchain==0.0.34
+langchain==0.0.340
 tiktoken==0.4.0
 unstructured==0.6.5
 pdf2image==1.16.3
