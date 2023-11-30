@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 from glob import glob
 
@@ -7,7 +8,13 @@ from deeplake.util.bugout_reporter import deeplake_reporter
 from langchain.schema import Document
 from langchain.vectorstores import DeepLake, VectorStore
 
-from datachad.backend.constants import DATA_PATH, DEFAULT_USER, LOCAL_DEEPLAKE, STORE_DOCS_EXTRA
+from datachad.backend.constants import (
+    DATA_PATH,
+    DEFAULT_USER,
+    LOCAL_DEEPLAKE,
+    STORE_DOCS_EXTRA,
+    VERBOSE,
+)
 from datachad.backend.io import clean_string_for_storing
 from datachad.backend.loader import load_data_source, split_docs
 from datachad.backend.logging import logger
@@ -196,6 +203,7 @@ def get_or_create_deeplake_vector_store(
     options: dict,
     credentials: dict,
 ) -> VectorStore:
+    t_start = time.time()
     embeddings = get_embeddings(options, credentials)
     if deeplake.exists(vector_store_path, token=credentials["activeloop_token"]):
         logger.info(f"Vector Store '{vector_store_path}' exists -> loading")
@@ -214,6 +222,8 @@ def get_or_create_deeplake_vector_store(
             embeddings,
             dataset_path=vector_store_path,
             token=credentials["activeloop_token"],
+            verbose=VERBOSE,
         )
-    logger.info(f"Vector Store {vector_store_path} loaded!")
+
+    logger.info(f"Vector Store {vector_store_path} loaded in {round(time.time() - t_start)}s!")
     return vector_store

@@ -9,7 +9,7 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.embeddings.openai import Embeddings, OpenAIEmbeddings
 from transformers import AutoTokenizer
 
-from datachad.backend.constants import MODEL_PATH
+from datachad.backend.constants import LOCAL_EMBEDDINGS, MODEL_PATH
 from datachad.backend.logging import logger
 
 
@@ -79,15 +79,15 @@ def get_model(options: dict, credentials: dict) -> BaseLanguageModel:
 
 def get_embeddings(options: dict, credentials: dict) -> Embeddings:
     match options["model"].embedding:
+        case embedding if (embedding == EMBEDDINGS.HUGGINGFACE or LOCAL_EMBEDDINGS):
+            embeddings = HuggingFaceEmbeddings(
+                model_name=EMBEDDINGS.HUGGINGFACE, cache_folder=str(MODEL_PATH)
+            )
         case EMBEDDINGS.OPENAI:
             embeddings = OpenAIEmbeddings(
                 model=EMBEDDINGS.OPENAI,
                 disallowed_special=(),
                 openai_api_key=credentials["openai_api_key"],
-            )
-        case EMBEDDINGS.HUGGINGFACE:
-            embeddings = HuggingFaceEmbeddings(
-                model_name=EMBEDDINGS.HUGGINGFACE, cache_folder=str(MODEL_PATH)
             )
         # Added embeddings need to be cased here
         case _default:

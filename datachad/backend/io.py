@@ -18,13 +18,11 @@ def concatenate_file_names(strings: list[str], n_max: int = 30) -> str:
     return clean_string_for_storing(result)
 
 
-def get_data_source_and_save_path(
-    files: list[io.BytesIO],
-) -> tuple[str, Path]:
+def get_data_source_and_save_path(files: list[io.BytesIO], name: str) -> tuple[str, Path]:
     # generate data source string and path to save files to
     if len(files) > 1:
-        # we create a folder name by adding up parts of the file names
-        path = DATA_PATH / concatenate_file_names([f.name for f in files])
+        # we create a folder where all the files will be stored
+        path = DATA_PATH / name
         data_source = path
     else:
         path = DATA_PATH
@@ -45,23 +43,23 @@ def save_file(file: io.BytesIO, path: Path) -> None:
     logger.info(f"Saved: {file_path}")
 
 
-def save_files(files: list[io.BytesIO]) -> str:
+def save_files(files: list[io.BytesIO], name: str) -> str:
     # streamlit uploaded files need to be stored locally
     # before embedded and uploaded to the hub
     if not files:
         return None
-    data_source, save_path = get_data_source_and_save_path(files)
+    data_source, save_path = get_data_source_and_save_path(files, name)
     for file in files:
         save_file(file, save_path)
     return data_source
 
 
-def delete_files(files: list[io.BytesIO]) -> None:
+def delete_files(files: list[io.BytesIO], name: str) -> None:
     # cleanup locally stored files
     # the correct path is stored to data_source
     if not files:
         return
-    data_source, _ = get_data_source_and_save_path(files)
+    data_source, _ = get_data_source_and_save_path(files, name)
     if os.path.isdir(data_source):
         shutil.rmtree(data_source)
     elif os.path.isfile(data_source):
