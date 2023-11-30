@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any
 
 import streamlit as st
 import tiktoken
@@ -100,10 +100,10 @@ def get_embeddings(options: dict, credentials: dict) -> Embeddings:
 
 def get_tokenizer(options: dict) -> Embeddings:
     match options["model"].embedding:
+        case embedding if (embedding == EMBEDDINGS.HUGGINGFACE or LOCAL_EMBEDDINGS):
+            tokenizer = AutoTokenizer.from_pretrained(EMBEDDINGS.HUGGINGFACE)
         case EMBEDDINGS.OPENAI:
             tokenizer = tiktoken.encoding_for_model(EMBEDDINGS.OPENAI)
-        case EMBEDDINGS.HUGGINGFACE:
-            tokenizer = AutoTokenizer.from_pretrained(EMBEDDINGS.HUGGINGFACE)
         # Added tokenizers need to be cased here
         case _default:
             msg = f"Tokenizer {options['model'].embedding} not supported!"
