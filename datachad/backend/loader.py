@@ -3,7 +3,10 @@ import re
 import shutil
 from pathlib import Path
 
-from langchain.document_loaders import (
+from langchain.document_loaders.base import BaseLoader
+from langchain.schema import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import (
     CSVLoader,
     EverNoteLoader,
     GitLoader,
@@ -21,9 +24,6 @@ from langchain.document_loaders import (
     UnstructuredWordDocumentLoader,
     WebBaseLoader,
 )
-from langchain.document_loaders.base import BaseLoader
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
 from datachad.backend.constants import DATA_PATH

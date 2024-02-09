@@ -29,7 +29,7 @@ from datachad.streamlit.helper import (
     get_existing_knowledge_bases,
     get_existing_smart_faqs_and_default_index,
     update_chain,
-    update_vector_store,
+    upload_data,
 )
 
 
@@ -173,7 +173,7 @@ def data_upload_widget() -> None:
         if (
             st.session_state["uploaded_files"] or st.session_state["data_source"]
         ) and st.session_state["data_name"]:
-            update_vector_store()
+            upload_data()
         else:
             st.session_state["info_container"].error(
                 "Missing required files and name!", icon=PAGE_ICON

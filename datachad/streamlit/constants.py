@@ -45,5 +45,23 @@ DATA_TYPE_HELP = """
 They need to be in the format of numbers with periods followed by arbirtary text.
 The next FAQ is identified by two new lines `\\n\\n` followed by the next number.
 You can check if your documents are correctly formatted by using the following regex pattern:\n
-`r"(?=\\n\\n\d+\.)"` 
+`r"(?=\\n\\n\d+\.)"`. Here is an example of a correctly formatted FAQ:\n
+    1. First item
+    Some description here.
+
+    1. some numbered list
+    2. beloing to the first item
+
+
+    2. Second item
+    Another description.
+
+    a) another list
+    b) but with characters
+
+
+    3. Third item
+    And another one.
+    - a list with dashes
+    - more items
 """

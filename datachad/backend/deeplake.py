@@ -6,13 +6,14 @@ import deeplake
 from deeplake.client.client import DeepLakeBackendClient
 from deeplake.util.bugout_reporter import deeplake_reporter
 from langchain.schema import Document
-from langchain.vectorstores import DeepLake, VectorStore
+from langchain.vectorstores import VectorStore
+from langchain_community.vectorstores.deeplake import DeepLake
 
 from datachad.backend.constants import (
-    DATA_PATH,
     DEFAULT_USER,
     LOCAL_DEEPLAKE,
     STORE_DOCS_EXTRA,
+    VECTOR_STORE_PATH,
     VERBOSE,
 )
 from datachad.backend.io import clean_string_for_storing
@@ -65,7 +66,7 @@ def list_deeplake_datasets(
 
 def get_deeplake_dataset_path(dataset_name: str, credentials: dict) -> str:
     if LOCAL_DEEPLAKE:
-        dataset_path = str(DATA_PATH / dataset_name)
+        dataset_path = str(VECTOR_STORE_PATH / dataset_name)
     else:
         dataset_path = f"hub://{credentials['activeloop_id']}/{dataset_name}"
     return dataset_path
@@ -81,7 +82,7 @@ def delete_all_deeplake_datasets(credentials: dict) -> None:
 
 def get_existing_deeplake_vector_store_paths(credentials: dict) -> list[str]:
     if LOCAL_DEEPLAKE:
-        return glob(str(DATA_PATH / "*"), recursive=False)
+        return glob(str(VECTOR_STORE_PATH / "*"), recursive=False)
     else:
         dataset_names = list_deeplake_datasets(
             credentials["activeloop_id"], credentials["activeloop_token"]
@@ -224,6 +225,5 @@ def get_or_create_deeplake_vector_store(
             token=credentials["activeloop_token"],
             verbose=VERBOSE,
         )
-
     logger.info(f"Vector Store {vector_store_path} loaded in {round(time.time() - t_start)}s!")
     return vector_store

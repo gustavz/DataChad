@@ -5,8 +5,8 @@ import openai
 import streamlit as st
 from dotenv import load_dotenv
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.callbacks.openai_info import get_openai_token_cost_for_model
-from langchain.memory.chat_message_histories import StreamlitChatMessageHistory
+from langchain_community.callbacks.openai_info import get_openai_token_cost_for_model
+from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 
 from datachad.backend.constants import (
     CHUNK_OVERLAP_PCT,
@@ -132,9 +132,9 @@ def get_options() -> dict:
     }
 
 
-def update_vector_store() -> None:
+def upload_data() -> None:
     try:
-        with st.session_state["info_container"], st.spinner("Updating Vector Stores..."):
+        with st.session_state["info_container"], st.spinner("Uploading Data..."):
             options = get_options()
             create_vector_store(
                 data_source=st.session_state["data_source"],
@@ -161,7 +161,7 @@ def update_vector_store() -> None:
 
 def update_chain() -> None:
     try:
-        with st.session_state["info_container"], st.spinner("Updating Knowledge Base..."):
+        with st.session_state["info_container"], st.spinner("Applying data selection..."):
             st.session_state["chat_history"].clear()
             options = get_options()
             st.session_state["chain"] = create_chain(

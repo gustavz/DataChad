@@ -4,9 +4,9 @@ from typing import Any
 import streamlit as st
 import tiktoken
 from langchain.base_language import BaseLanguageModel
-from langchain.chat_models import ChatOpenAI
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.embeddings.openai import Embeddings, OpenAIEmbeddings
+from langchain_community.chat_models import ChatOpenAI
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.openai import Embeddings, OpenAIEmbeddings
 from transformers import AutoTokenizer
 
 from datachad.backend.constants import LOCAL_EMBEDDINGS, MODEL_PATH
@@ -36,7 +36,7 @@ class STORES(Enum):
 
 class EMBEDDINGS(Enum):
     # Add more embeddings as needed
-    OPENAI = "text-embedding-ada-002"
+    OPENAI = "text-embedding-3-small"
     HUGGINGFACE = "sentence-transformers/all-MiniLM-L6-v2"
 
 
@@ -56,6 +56,11 @@ class MODELS(Enum):
         name="gpt-4",
         embedding=EMBEDDINGS.OPENAI,
         context=8192,
+    )
+    GPT4TURBO = Model(
+        name="gpt-4-turbo-preview",
+        embedding=EMBEDDINGS.OPENAI,
+        context=128000,
     )
 
 

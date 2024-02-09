@@ -2,6 +2,7 @@ from pathlib import Path
 
 MODEL_PATH = Path("models")
 DATA_PATH = Path("data")
+VECTOR_STORE_PATH = Path("stores")
 
 DEFAULT_USER = "admin"
 DEFAULT_SMART_FAQ = None
@@ -21,4 +22,4 @@ STORE_DOCS_EXTRA = False
 LOCAL_DEEPLAKE = False
 LOCAL_EMBEDDINGS = False
 
-VERBOSE = True
+VERBOSE = False

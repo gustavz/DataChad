@@ -10,7 +10,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseChatMessageHistory, BasePromptTemplate, BaseRetriever, Document
 from langchain.schema.language_model import BaseLanguageModel
 from langchain.schema.vectorstore import VectorStore
-from pydantic import Extra
+from datachad.backend.constants import VERBOSE
 
 from datachad.backend.deeplake import get_or_create_deeplake_vector_store_display_name
 from datachad.backend.logging import logger
@@ -38,13 +38,6 @@ class MultiRetrieverFAQChain(Chain):
     knowledge_base_retrievers: list[BaseRetriever]
     smart_faq_chain: BaseCombineDocumentsChain
     smart_faq_retriever: BaseRetriever | None
-
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
-        allow_population_by_field_name = True
 
     @property
     def input_keys(self) -> list[str]:
@@ -215,24 +208,33 @@ class MultiRetrieverFAQChain(Chain):
         )
 
 
-def get_knowledge_base_search_kwargs(options: dict) -> dict:
+def get_knowledge_base_search_kwargs(options: dict) -> tuple[dict, str]:
     k = int(options["max_tokens"] // options["chunk_size"])
     fetch_k = k * options["k_fetch_k_ratio"]
-    search_kwargs = {
-        "maximal_marginal_relevance": options["maximal_marginal_relevance"],
-        "distance_metric": options["distance_metric"],
-        "fetch_k": fetch_k,
-        "k": k,
-    }
-    return search_kwargs
+    if options["maximal_marginal_relevance"]:
+        search_kwargs = {
+            "distance_metric": options["distance_metric"],
+            "fetch_k": fetch_k,
+            "k": k,
+        }
+        search_type = "mmr"
+    else:
+        search_kwargs = {
+            "k": k,
+            "distance_metric": options["distance_metric"],
+        }
+        search_type = "similarity"
+
+    return search_kwargs, search_type
 
 
-def get_smart_faq_search_kwargs(options: dict) -> dict:
+def get_smart_faq_search_kwargs(options: dict) -> tuple[dict, str]:
     search_kwargs = {
         "k": 20,
         "distance_metric": options["distance_metric"],
     }
-    return search_kwargs
+    search_type = "similarity"
+    return search_kwargs, search_type
 
 
 def get_multi_chain(
@@ -243,10 +245,17 @@ def get_multi_chain(
     options: dict,
     credentials: dict,
 ) -> MultiRetrieverFAQChain:
-    kb_search_kwargs = get_knowledge_base_search_kwargs(options)
-    kb_retrievers = [kb.as_retriever(search_kwargs=kb_search_kwargs) for kb in knowledge_bases]
-    faq_search_kwargs = get_smart_faq_search_kwargs(options)
-    faq_retriever = smart_faq.as_retriever(search_kwargs=faq_search_kwargs) if smart_faq else None
+    kb_search_kwargs, search_type = get_knowledge_base_search_kwargs(options)
+    kb_retrievers = [
+        kb.as_retriever(search_type=search_type, search_kwargs=kb_search_kwargs)
+        for kb in knowledge_bases
+    ]
+    faq_search_kwargs, search_type = get_smart_faq_search_kwargs(options)
+    faq_retriever = (
+        smart_faq.as_retriever(search_type=search_type, search_kwargs=faq_search_kwargs)
+        if smart_faq
+        else None
+    )
     model = get_model(options, credentials)
     memory = ConversationBufferMemory(
         memory_key="chat_history", chat_memory=chat_history, return_messages=True
@@ -262,7 +271,7 @@ def get_multi_chain(
         max_tokens_limit=options["max_tokens"],
         use_vanilla_llm=use_vanilla_llm,
         memory=memory,
-        verbose=True,
+        verbose=VERBOSE,
     )
     logger.info(f"Multi chain with settings {options} build!")
     return chain
