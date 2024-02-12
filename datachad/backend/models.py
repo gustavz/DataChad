@@ -3,6 +3,8 @@ from typing import Any
 
 import streamlit as st
 import tiktoken
+import litellm
+from litellm import completion
 from langchain.base_language import BaseLanguageModel
 from langchain_community.chat_models import ChatOpenAI
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -72,6 +74,13 @@ def get_model(options: dict, credentials: dict) -> BaseLanguageModel:
                 temperature=options["temperature"],
                 openai_api_key=credentials["openai_api_key"],
                 streaming=True,
+            )
+        case *litellm.model_list:
+            model = ChatOpenAI(
+                model_name=options["model"].name,
+                temperature=options["temperature"],
+                openai_api_key=credentials["openai_api_key"],
+                client=completion
             )
         # Added models need to be cased here
         case _default:
